@@ -1,0 +1,37 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.7.0/schema.json",
+  "name": "cardHelmet",
+  "position": {
+    "x": 1158,
+    "y": 372,
+    "z": 8000,
+    "width": 106,
+    "height": 70,
+    "tabOrder": 8000
+  },
+  "visual": {
+    "visualType": "card",
+    "query": {
+      "queryState": {
+        "Values": {
+          "projections": [
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Weapons"
+                    }
+                  },
+                  "Property": "Equipped Helmet One-Shot"
+                }
+              },
+              "queryRef": "Weapons.Equipped Helmet One-Shot",
+              "nativeQueryRef": "Equipped Helmet One-Shot"
+            }
+          ]
+        }
+      }
+    }
+  }
+}

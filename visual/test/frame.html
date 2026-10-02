@@ -1,0 +1,186 @@
+<!doctype html>
+<meta charset="utf-8">
+<!-- No WebAccess privilege: every network fetch must fail, like in Power BI. -->
+<meta http-equiv="Content-Security-Policy"
+      content="default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src data: blob:; media-src data: blob:; connect-src 'none'">
+<style>html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; }</style>
+<link rel="stylesheet" href="/visual.css">
+<div id="host" style="width: 100%; height: 100%;"></div>
+<script>
+    const post = m => parent.postMessage(m, "*");
+    addEventListener("error", e => post({ type: "error", msg: String(e.message) }));
+    addEventListener("unhandledrejection", e => post({ type: "error", msg: "unhandled: " + String(e.reason) }));
+    window.powerbi = { visuals: { plugins: {} } };
+
+    // Same rows as the semantic model's Weapons table (ArmorPen given in percent on purpose).
+    const ROWS = [
+        ["R-7 Carbine", "Assault", 30, 720, 30, 45, 5], ["Kestrel AR", "Assault", 34, 600, 30, 55, 7],
+        ["Hawk SMG", "SMG", 22, 900, 32, 25, 3], ["Moth PDW", "SMG", 19, 1000, 40, 30, 4],
+        ["Longshot", "Sniper", 95, 45, 5, 90, 9], ["Talon DMR", "Marksman", 58, 240, 10, 75, 6],
+        ["Ward-9", "Pistol", 26, 400, 12, 20, 2], ["Brute", "Shotgun", 14, 70, 6, 10, 8],
+    ];
+    let rows = ROWS;
+    const objects = { display: { diagnostics: true }, gameplay: { lookMode: 'drag' } };
+    const log = { select: [], clear: 0, persist: [] };
+
+    function dataView() {
+        const col = (name, role, i, agg) => ({
+            source: { displayName: name, roles: { [role]: true }, queryName: agg ? `Sum(Weapons.${name})` : `Weapons.${name}` },
+            values: rows.map(r => r[i]),
+        });
+        const values = [col("Damage", "damage", 2, 1), col("FireRate", "rpm", 3, 1), col("Magazine", "mag", 4, 1), col("ArmorPen", "pen", 5, 1), col("RecoilIndex", "recoil", 6, 1)];
+        values.grouped = () => [];
+        return { metadata: { columns: [], objects }, categorical: { categories: [col("Weapon", "weapon", 0), col("Class", "cls", 1)], values } };
+    }
+
+    // Minimal IVisualHost. Any member the visual reads but the stub lacks is reported as an error.
+    const hostImpl = {
+        hostCapabilities: { allowInteractions: true },
+        createSelectionIdBuilder() {
+            let key = "";
+            const b = {
+                withCategory(c, i) { key += `${c.source.displayName}=${c.values[i]}`; return b; },
+                createSelectionId: () => ({ key, getKey: () => key, equals: o => o.key === key, hasIdentity: () => true }),
+            };
+            return b;
+        },
+        createSelectionManager: () => ({
+            select(id) { log.select.push(id.key); return Promise.resolve([id]); },
+            clear() { log.clear++; log.select.push(null); return Promise.resolve(); },
+            hasSelection: () => log.select.length > 0 && log.select[log.select.length - 1] !== null,
+            registerOnSelectCallback() {},
+        }),
+        persistProperties(changes) {
+            log.persist.push(JSON.parse(JSON.stringify(changes)));
+            for (const inst of changes.merge || []) objects[inst.objectName] = { ...objects[inst.objectName], ...inst.properties };
+            setTimeout(() => update(2), 30);
+        },
+    };
+    const host = new Proxy(hostImpl, {
+        get(t, k) {
+            if (!(k in t) && typeof k === "string") post({ type: "error", msg: "host." + k + " is not stubbed" });
+            return t[k];
+        }
+    });
+</script>
+<script src="/visual.js"></script>
+<script>
+    const plugin = Object.values(window.powerbi.visuals.plugins)[0];
+    const visual = plugin.create({ element: document.getElementById("host"), host });
+    // VisualUpdateType: Data = 2, Resize = 4, All = 62
+    const update = type => visual.update({ viewport: { width: innerWidth, height: innerHeight }, dataViews: [dataView()], type, viewMode: 1 });
+    update(62);
+    addEventListener("resize", () => update(4));
+
+    // Test-only helpers driven by run.mjs through postMessage (reach into the game, plain JS).
+    const game = visual.game;
+    function aimAtTarget(head, off = 0) {
+        const t = game.targets.filter(x => x.raised && x.up > 0.85)
+            .sort((a, b) => Math.hypot(a.pos.x - game.pos.x, a.pos.z - game.pos.z) - Math.hypot(b.pos.x - game.pos.x, b.pos.z - game.pos.z))[0];
+        if (!t) return false;
+        const eyeY = game.pos.y + 1.65 - 0.53 * game.crouch;
+        const dx = t.pos.x - game.pos.x, dz = t.pos.z - game.pos.z, dy = (head ? 1.18 : 0.64) - eyeY;
+        game.yaw = Math.atan2(-dx, -dz);
+        game.pitch = Math.atan2(dy, Math.hypot(dx, dz));
+        game.recoilP = game.recoilY = 0;
+        game.yaw += off;
+        return true;
+    }
+    // Duel spawns: from every candidate cover spot, the bot must engage within 12 simulated seconds (no stuck bot):
+    // peek from cover, or, on small maps with no valid cover, walk into the player's line of sight.
+    function botSim() {
+        const g = game, b = g.bots[0], w = g.world, eye = g.vA.set(g.pos.x, g.pos.y + 1.65, g.pos.z), was = g.paused;
+        g.paused = true;
+        const mid = w.cover.filter(c => { const d = Math.hypot(c.x - g.pos.x, c.z - g.pos.z); return d > 16 && d < 32 && !w.los({ x: c.x, y: 1.6, z: c.z }, eye); });
+        const bad = [];
+        for (const c of mid) {
+            g.claimed.clear();
+            b.spawn({ x: c.x, y: 0, z: c.z }, 0);
+            let peeked = false;
+            for (let k = 0; k < 240 && !peeked; k++) { g.botCtx.now += 0.05; b.update(0.05, g.botCtx); peeked = b.state === "peek" || b.visible; }
+            if (!peeked) bad.push(`${c.x.toFixed(1)},${c.z.toFixed(1)}`);
+        }
+        g.paused = was;
+        return { n: mid.length, bad };
+    }
+    // Spawn rules from many player positions: bots appear hidden (head and chest), >= 12 m (scaled), 3 m apart;
+    // the player respawns out of sight of the bot.
+    function spawnCheck() {
+        const g = game, w = g.world, b = g.bots[0], was = g.paused, keep = [g.pos.x, g.pos.z, g.yaw, g.mode, g.alive];
+        g.paused = true;
+        const seen = (x, z, eye) => w.los({ x, y: 1.6, z }, eye) || w.los({ x, y: 1.0, z }, eye);
+        const dMin = 12 * w.bound / 32 - 0.01, bad = [];
+        const spots = w.cover.filter((_, i) => i % 6 === 0);
+        let n = 0;
+        for (const mode of ["duel", "survival"]) {
+            g.mode = mode;
+            spots.forEach((c, i) => {
+                g.pos.set(c.x, 0, c.z);
+                g.yaw = i * 1.3;
+                g.spawnBot(b);
+                n++;
+                const d = Math.hypot(b.pos.x - c.x, b.pos.z - c.z);
+                if (seen(b.pos.x, b.pos.z, { x: c.x, y: 1.65, z: c.z }) || d < dMin) bad.push(`${mode} player ${c.x.toFixed(1)},${c.z.toFixed(1)} bot ${b.pos.x.toFixed(1)},${b.pos.z.toFixed(1)} d=${d.toFixed(1)}`);
+            });
+        }
+        g.mode = "duel";
+        spots.forEach(c => {
+            b.spawn({ x: c.x, y: 0, z: c.z }, 0);
+            g.respawn();
+            n++;
+            if (seen(g.pos.x, g.pos.z, { x: c.x, y: 1.55, z: c.z })) bad.push(`respawn in sight of bot ${c.x.toFixed(1)},${c.z.toFixed(1)}`);
+        });
+        g.pos.set(keep[0], 0, keep[1]); g.yaw = keep[2]; g.mode = keep[3]; g.alive = keep[4];
+        g.paused = was;
+        return { n, bad };
+    }
+    // Every synthesized buffer: finite samples, audible peak, no clipping.
+    function audioCheck() {
+        const s = game.sfx, bufs = [...[...s.shots.values()].flat(), ...Object.values(s.bank), ...s.casings, s.verb.buffer];
+        const bad = [];
+        bufs.forEach((b, i) => {
+            for (let c = 0; c < b.numberOfChannels; c++) {
+                let peak = 0, finite = true;
+                for (const x of b.getChannelData(c)) { if (!Number.isFinite(x)) finite = false; peak = Math.max(peak, Math.abs(x)); }
+                if (!finite || peak < 0.05 || peak > 1.5) bad.push(`#${i} ch${c} peak=${peak.toFixed(2)} finite=${finite}`);
+            }
+        });
+        return { n: bufs.length, bad };
+    }
+    // The drawn face (body child 2) must sit inside the head hitbox, standing and crouched.
+    function headMatches() {
+        const b = game.bots.find(x => x.alive);
+        if (!b) return "no bot";
+        const out = [], keep = b.crouch;
+        for (const c of [0, 1]) {
+            b.crouch = c;
+            b.update(0, game.botCtx);
+            b.group.updateMatrixWorld(true);
+            const faceY = b.body.children[2].matrixWorld.elements[13], h = b.hitboxes()[0].box;
+            out.push(faceY > h.minY && faceY < h.maxY ? "ok" : `crouch ${c}: face ${faceY.toFixed(2)} vs head ${h.minY.toFixed(2)}-${h.maxY.toFixed(2)}`);
+        }
+        b.crouch = keep;
+        return out.join(",");
+    }
+    addEventListener("message", e => {
+        const m = e.data;
+        if (m.type === "filter") { rows = m.cls ? ROWS.filter(r => r[1] === m.cls) : ROWS; update(2); }
+        if (m.type === "aim") post({ type: "ack", ok: aimAtTarget(m.head, m.off || 0) });
+        if (m.type === "click") { const b = document.querySelectorAll(m.sel)[m.i || 0]; if (b) b.click(); post({ type: "ack", ok: !!b }); }
+        if (m.type === "type") { const t = document.querySelector(m.sel); if (t) { t.value = m.value; t.dispatchEvent(new Event("change")); } post({ type: "ack", ok: !!t }); }
+        if (m.type === "spawnCheck") post({ type: "ack", ok: spawnCheck() });
+        if (m.type === "botSim") post({ type: "ack", ok: botSim() });
+        if (m.type === "audioCheck") post({ type: "ack", ok: audioCheck() });
+        if (m.type === "crouchHead") post({ type: "ack", ok: headMatches() });
+        if (m.type === "finish") game.finishLater("TEST END", "FORCED BY HARNESS", 0);
+        if (m.type === "objects") { for (const [k, v] of Object.entries(m.o)) objects[k] = { ...objects[k], ...v }; update(2); }
+        if (m.type === "blur") dispatchEvent(new Event("blur"));
+    });
+    setInterval(() => {
+        const canvas = document.querySelector("canvas");
+        const diag = document.querySelector(".sl-diag");
+        const board = document.querySelector(".sl-board");
+        post({ type: "state", snap: game.snapshot(), engagedCls: document.querySelector(".sl-root").classList.contains("sl-engaged"), log, diag: diag && diag.textContent, canvas: canvas && [canvas.width, canvas.height],
+            board: board && board.style.display === "block", panel: (document.querySelector(".sl-panel") || {}).className });
+    }, 100);
+</script>

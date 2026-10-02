@@ -1,0 +1,27 @@
+{
+  "name": "copbi-dops",
+  "description": "Call of Power BI: Data Ops (copbi-dops) - procedural tactical FPS as a Power BI custom visual",
+  "version": "1.0.0",
+  "private": true,
+  "license": "PolyForm-Noncommercial-1.0.0",
+  "scripts": {
+    "start": "pbiviz start",
+    "package": "node tools/release.mjs",
+    "package:only": "pbiviz package",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON test/rules.test.mts && node test/run.mjs",
+    "test:standalone": "node test/standalone.mjs"
+  },
+  "dependencies": {
+    "powerbi-visuals-api": "5.11.1",
+    "three": "0.186.1"
+  },
+  "devDependencies": {
+    "@types/three": "0.186.0",
+    "eslint": "9.39.5",
+    "eslint-plugin-powerbi-visuals": "1.1.1",
+    "powerbi-visuals-tools": "7.2.1",
+    "typescript": "~5.9.3"
+  }
+}

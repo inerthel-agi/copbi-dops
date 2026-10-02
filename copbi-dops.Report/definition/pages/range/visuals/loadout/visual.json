@@ -1,0 +1,111 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.7.0/schema.json",
+  "name": "loadout",
+  "position": {
+    "x": 1044,
+    "y": 452,
+    "z": 9000,
+    "width": 220,
+    "height": 252,
+    "tabOrder": 9000
+  },
+  "visual": {
+    "visualType": "tableEx",
+    "query": {
+      "queryState": {
+        "Values": {
+          "projections": [
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Weapons"
+                    }
+                  },
+                  "Property": "Weapon"
+                }
+              },
+              "queryRef": "Weapons.Weapon",
+              "nativeQueryRef": "Weapon"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Weapons"
+                    }
+                  },
+                  "Property": "Class"
+                }
+              },
+              "queryRef": "Weapons.Class",
+              "nativeQueryRef": "Class"
+            },
+            {
+              "field": {
+                "Aggregation": {
+                  "Expression": {
+                    "Column": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "Weapons"
+                        }
+                      },
+                      "Property": "DPS"
+                    }
+                  },
+                  "Function": 0
+                }
+              },
+              "queryRef": "Sum(Weapons.DPS)",
+              "nativeQueryRef": "DPS"
+            },
+            {
+              "field": {
+                "Aggregation": {
+                  "Expression": {
+                    "Column": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "Weapons"
+                        }
+                      },
+                      "Property": "TTK (ms)"
+                    }
+                  },
+                  "Function": 0
+                }
+              },
+              "queryRef": "Sum(Weapons.TTK (ms))",
+              "nativeQueryRef": "TTK (ms)"
+            }
+          ]
+        }
+      }
+    },
+    "visualContainerObjects": {
+      "title": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "true"
+                }
+              }
+            },
+            "text": {
+              "expr": {
+                "Literal": {
+                  "Value": "'LOADOUT'"
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

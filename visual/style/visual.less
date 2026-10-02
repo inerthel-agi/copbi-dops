@@ -1,0 +1,808 @@
+// Offline condensed stack: Bahnschrift ships with Windows 10+, the rest are common fallbacks.
+@font-hud: "Bahnschrift Condensed", "Bahnschrift", "Arial Narrow", "Roboto Condensed", "DIN Condensed", sans-serif;
+@panel: rgba(18, 20, 16, 0.78);
+@khaki: #d6cea9;
+@dim: #8f8a72;
+@olive: #6b6f4a;
+@accent: #ff7a1a;
+@red: #e2483a;
+@white: #f3efe2;
+
+.sl-root {
+    position: relative;
+    overflow: hidden;
+    background: #1c1e1a;
+    user-select: none;
+    outline: none;
+    container-type: size;
+    font-family: @font-hud;
+    font-stretch: condensed;
+
+    canvas {
+        display: block;
+        touch-action: none;
+    }
+}
+
+.sl-root.sl-engaged,
+.sl-root.sl-engaged * {
+    cursor: none;
+}
+
+.sl-hud {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    color: @khaki;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7);
+}
+
+.sl-play {
+    position: absolute;
+    inset: 0;
+}
+
+// ---------- top ----------
+
+.sl-stats {
+    position: absolute;
+    left: 14px;
+    top: 12px;
+    display: flex;
+    gap: 6px;
+}
+
+.sl-stat {
+    background: @panel;
+    border-left: 2px solid @accent;
+    padding: 3px 10px 4px;
+}
+
+.sl-stat-v {
+    color: @white;
+    font-weight: 700;
+    font-size: clamp(15px, 4.2cqmin, 28px);
+    line-height: 1.1;
+}
+
+.sl-stat-l {
+    color: @dim;
+    font-size: 10px;
+    letter-spacing: 0.14em;
+}
+
+.sl-timer {
+    position: absolute;
+    top: 8px;
+    left: 50%;
+    transform: translateX(-50%);
+    text-align: center;
+    white-space: nowrap;
+}
+
+.sl-timer-l {
+    color: @dim;
+    font-size: 11px;
+    letter-spacing: 0.22em;
+}
+
+.sl-timer-v {
+    color: @white;
+    font-weight: 700;
+    font-size: clamp(20px, 5.5cqmin, 40px);
+    line-height: 1.05;
+
+    &.urgent {
+        color: @accent;
+    }
+}
+
+.sl-timer-s {
+    font-size: 11px;
+    letter-spacing: 0.12em;
+}
+
+.sl-feed {
+    position: absolute;
+    top: 12px;
+    right: 14px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 3px;
+}
+
+.sl-kf {
+    background: @panel;
+    padding: 3px 8px;
+    font-size: clamp(10px, 2.2cqmin, 13px);
+    white-space: nowrap;
+
+    &.mine .sl-kf-a {
+        color: @accent;
+    }
+}
+
+.sl-kf-a,
+.sl-kf-b {
+    color: @white;
+}
+
+.sl-kf-w {
+    color: @dim;
+    margin: 0 6px;
+}
+
+.sl-kf-t {
+    margin-left: 8px;
+    color: @khaki;
+}
+
+.sl-joy {
+    display: none;
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 12%;
+    height: 12%;
+    transform: translate(-50%, -50%);
+    border: 1px dashed rgba(214, 206, 170, 0.28);
+    border-radius: 50%;
+}
+
+.sl-kf-hs {
+    margin-left: 6px;
+    padding: 0 3px;
+    color: @accent;
+    border: 1px solid @accent;
+    font-size: 0.8em;
+}
+
+// ---------- center ----------
+
+.sl-cross,
+.sl-hit {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 0;
+    height: 0;
+}
+
+.sl-cross-bar {
+    position: absolute;
+    left: 0;
+    top: 0;
+    background: rgba(243, 239, 226, 0.92);
+    box-shadow: 0 0 2px rgba(0, 0, 0, 0.9);
+
+    &:nth-child(1),
+    &:nth-child(2) {
+        width: 2px;
+        height: 9px;
+    }
+
+    &:nth-child(3),
+    &:nth-child(4) {
+        width: 9px;
+        height: 2px;
+    }
+}
+
+.sl-cross-dot {
+    position: absolute;
+    width: 2px;
+    height: 2px;
+    transform: translate(-50%, -50%);
+    background: @white;
+}
+
+.sl-hit {
+    opacity: 0;
+    transition: opacity 0.14s ease-out;
+
+    &.on {
+        opacity: 1;
+        transition: none;
+    }
+
+    &.head .sl-hit-bar {
+        background: @red;
+    }
+
+    &.kill .sl-hit-bar {
+        height: 15px;
+    }
+}
+
+.sl-hit-bar {
+    position: absolute;
+    width: 2px;
+    height: 10px;
+    background: @white;
+    box-shadow: 0 0 2px rgba(0, 0, 0, 0.9);
+    @arm: translateY(-13px);
+
+    &:nth-child(1) { transform: translate(-50%, -50%) rotate(45deg) @arm; }
+    &:nth-child(2) { transform: translate(-50%, -50%) rotate(135deg) @arm; }
+    &:nth-child(3) { transform: translate(-50%, -50%) rotate(225deg) @arm; }
+    &:nth-child(4) { transform: translate(-50%, -50%) rotate(315deg) @arm; }
+}
+
+.sl-dmg {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: clamp(140px, 40cqmin, 280px);
+    aspect-ratio: 1;
+    transform: translate(-50%, -50%);
+}
+
+.sl-dmg-arc {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    border: 6px solid transparent;
+    border-top-color: rgba(226, 72, 58, 0.95);
+    opacity: 0;
+    filter: drop-shadow(0 0 6px rgba(226, 72, 58, 0.8));
+}
+
+.sl-vignette {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0) 42%, rgba(140, 12, 6, 0.85) 100%);
+}
+
+.sl-scope {
+    position: absolute;
+    inset: 0;
+    display: none;
+    background: radial-gradient(circle closest-side at 50% 50%, rgba(0, 0, 0, 0) 95%, #050605 97%);
+}
+
+.sl-scope-h,
+.sl-scope-v {
+    position: absolute;
+    background: rgba(0, 0, 0, 0.85);
+}
+
+.sl-scope-h {
+    left: 0;
+    right: 0;
+    top: 50%;
+    height: 1px;
+}
+
+.sl-scope-v {
+    top: 0;
+    bottom: 0;
+    left: 50%;
+    width: 1px;
+}
+
+.sl-scope-dot {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    background: @accent;
+}
+
+.sl-banner {
+    position: absolute;
+    top: 22%;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 6px 48px;
+    color: @white;
+    font-size: clamp(15px, 4.4cqmin, 30px);
+    letter-spacing: 0.25em;
+    white-space: nowrap;
+    opacity: 0;
+    background: linear-gradient(90deg, rgba(18, 20, 16, 0), rgba(18, 20, 16, 0.75), rgba(18, 20, 16, 0));
+}
+
+.sl-prompt {
+    position: absolute;
+    left: 50%;
+    bottom: 54px;
+    transform: translateX(-50%);
+    color: @accent;
+    font-size: 13px;
+    letter-spacing: 0.22em;
+    white-space: nowrap;
+}
+
+// ---------- bottom ----------
+
+.sl-radar {
+    position: absolute;
+    left: 14px;
+    bottom: 12px;
+    width: clamp(86px, 24cqmin, 150px);
+}
+
+.sl-mini {
+    width: 100%;
+    aspect-ratio: 1;
+    display: block;
+}
+
+.sl-hp {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 5px;
+}
+
+.sl-hp-v {
+    width: 28px;
+    color: @white;
+    font-weight: 700;
+    font-size: 15px;
+}
+
+.sl-hp-bar {
+    flex: 1;
+    height: 5px;
+    background: rgba(255, 255, 255, 0.14);
+}
+
+.sl-hp-fill {
+    height: 100%;
+    background: @khaki;
+
+    &.low {
+        background: @red;
+    }
+}
+
+.sl-bar {
+    position: absolute;
+    bottom: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    max-width: 50%;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 3px;
+}
+
+.sl-slot {
+    background: @panel;
+    padding: 4px 8px;
+    color: @dim;
+    font-size: clamp(9px, 1.9cqmin, 12px);
+    white-space: nowrap;
+    border-bottom: 2px solid transparent;
+
+    &.active {
+        color: @white;
+        border-bottom-color: @accent;
+    }
+}
+
+.sl-slot-k {
+    margin-right: 5px;
+    color: @khaki;
+}
+
+.sl-ammo {
+    position: absolute;
+    right: 16px;
+    bottom: 12px;
+    min-width: 120px;
+    text-align: right;
+}
+
+.sl-ammo-mag {
+    color: @white;
+    font-weight: 700;
+    font-size: clamp(26px, 8cqmin, 56px);
+    line-height: 1;
+
+    &.low {
+        color: @accent;
+    }
+}
+
+.sl-ammo-res {
+    color: @dim;
+    font-size: clamp(14px, 3.6cqmin, 24px);
+}
+
+.sl-ammo-name {
+    font-size: clamp(11px, 2.4cqmin, 15px);
+    letter-spacing: 0.14em;
+}
+
+.sl-ammo-class {
+    color: @dim;
+    font-size: 10px;
+    letter-spacing: 0.2em;
+}
+
+.sl-reload {
+    height: 3px;
+    margin-top: 4px;
+    background: rgba(255, 255, 255, 0.15);
+    visibility: hidden;
+}
+
+.sl-reload-fill {
+    height: 100%;
+    background: @accent;
+}
+
+// ---------- overlays ----------
+
+.sl-board {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    display: none;
+    min-width: min(480px, 84%);
+    transform: translate(-50%, -50%);
+    padding: 12px 16px;
+    background: rgba(18, 20, 16, 0.92);
+    border-top: 2px solid @accent;
+
+    table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    th {
+        color: @dim;
+        font-size: 10px;
+        font-weight: 400;
+        text-align: left;
+        padding: 4px 8px;
+        letter-spacing: 0.14em;
+    }
+
+    td {
+        color: @white;
+        font-size: 13px;
+        padding: 4px 8px;
+        border-top: 1px solid rgba(214, 206, 170, 0.12);
+    }
+
+    tr.me td {
+        color: @accent;
+    }
+}
+
+.sl-board-t {
+    color: @white;
+    letter-spacing: 0.3em;
+    margin-bottom: 6px;
+}
+
+.sl-panel {
+    position: absolute;
+    inset: 0;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    pointer-events: auto;
+    background: rgba(14, 15, 12, 0.55);
+
+    &.pause .sl-panel-in {
+        text-align: center;
+    }
+}
+
+.sl-panel-in {
+    max-width: min(780px, 94%);
+    max-height: 94%;
+    overflow: auto;
+    padding: clamp(12px, 3cqmin, 26px);
+    background: rgba(20, 22, 18, 0.9);
+    border-top: 3px solid @accent;
+}
+
+.sl-brand-t {
+    color: @white;
+    font-weight: 700;
+    font-size: clamp(26px, 8cqmin, 56px);
+    letter-spacing: 0.3em;
+    line-height: 1;
+}
+
+.sl-brand-s {
+    color: @dim;
+    font-size: 11px;
+    letter-spacing: 0.4em;
+    margin: 4px 0 14px;
+}
+
+.sl-modes {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+}
+
+@container (max-width: 560px) {
+    .sl-modes {
+        grid-template-columns: 1fr;
+    }
+}
+
+.sl-mode,
+.sl-class,
+.sl-btn {
+    font: inherit;
+    text-transform: uppercase;
+    cursor: pointer;
+    color: @khaki;
+}
+
+.sl-mode,
+.sl-class {
+    text-align: left;
+    padding: 10px 12px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(214, 206, 170, 0.18);
+
+    &:hover,
+    &:focus-visible {
+        border-color: @accent;
+        background: rgba(255, 122, 26, 0.08);
+        outline: none;
+    }
+}
+
+.sl-mode-k {
+    color: @accent;
+    font-size: 11px;
+}
+
+.sl-mode-t {
+    color: @white;
+    font-weight: 700;
+    font-size: clamp(15px, 3.4cqmin, 22px);
+    letter-spacing: 0.12em;
+}
+
+.sl-mode-d {
+    color: @dim;
+    font-size: 11px;
+    line-height: 1.3;
+    margin: 4px 0 8px;
+}
+
+.sl-mode-b {
+    font-size: 11px;
+}
+
+.sl-line {
+    margin-top: 12px;
+    font-size: 12px;
+
+    &.dim {
+        margin-top: 4px;
+        color: @dim;
+    }
+}
+
+.sl-help {
+    margin-top: 10px;
+    color: @dim;
+    font-size: 10px;
+    line-height: 1.6;
+    letter-spacing: 0.08em;
+}
+
+.sl-sum-t {
+    color: @white;
+    font-weight: 700;
+    font-size: clamp(24px, 7cqmin, 48px);
+    letter-spacing: 0.25em;
+}
+
+.sl-sum-s {
+    color: @dim;
+    font-size: 12px;
+    letter-spacing: 0.2em;
+    margin-bottom: 14px;
+}
+
+.sl-tiles {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+    gap: 8px;
+}
+
+.sl-tile {
+    padding: 8px 10px;
+    background: rgba(255, 255, 255, 0.04);
+    border-left: 2px solid @olive;
+
+    &.best {
+        border-left-color: @accent;
+    }
+}
+
+.sl-tile-v {
+    color: @white;
+    font-weight: 700;
+    font-size: clamp(20px, 5cqmin, 32px);
+}
+
+.sl-tile-l {
+    color: @dim;
+    font-size: 10px;
+    letter-spacing: 0.14em;
+}
+
+.sl-tile-nb {
+    color: @accent;
+    font-size: 10px;
+    letter-spacing: 0.16em;
+}
+
+.sl-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 16px;
+}
+
+.sl-btn {
+    padding: 8px 14px;
+    background: transparent;
+    border: 1px solid rgba(214, 206, 170, 0.3);
+    letter-spacing: 0.15em;
+
+    &.primary {
+        background: @accent;
+        border-color: @accent;
+        color: #15140f;
+    }
+}
+
+.sl-classes {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+    margin-top: 10px;
+}
+
+@container (max-width: 560px) {
+    .sl-classes {
+        grid-template-columns: 1fr 1fr;
+    }
+}
+
+.sl-class {
+    padding: 6px 10px;
+
+    &.active {
+        border-color: @accent;
+        background: rgba(255, 122, 26, 0.14);
+    }
+}
+
+.sl-class-t {
+    color: @white;
+    font-weight: 700;
+    font-size: 13px;
+    letter-spacing: 0.12em;
+}
+
+.sl-class-d {
+    color: @dim;
+    font-size: 10px;
+    line-height: 1.3;
+}
+
+.sl-buttons .sl-line {
+    align-self: center;
+    margin: 0;
+}
+
+.sl-ce-name {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 2px 6px;
+    font: inherit;
+    font-weight: 700;
+    font-size: clamp(24px, 7cqmin, 48px);
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    color: @white;
+    background: transparent;
+    border: 1px solid transparent;
+    border-bottom-color: rgba(214, 206, 170, 0.3);
+
+    &:hover,
+    &:focus {
+        border-color: @accent;
+        outline: none;
+    }
+}
+
+.sl-ce {
+    display: grid;
+    grid-template-columns: 90px auto 1fr auto;
+    align-items: center;
+    gap: 8px;
+    margin-top: 8px;
+    padding: 6px 8px;
+    background: rgba(255, 255, 255, 0.04);
+}
+
+.sl-ce-l {
+    color: @accent;
+    font-size: 11px;
+    letter-spacing: 0.16em;
+}
+
+.sl-ce-n {
+    color: @white;
+    font-weight: 700;
+    font-size: clamp(14px, 3cqmin, 20px);
+    letter-spacing: 0.1em;
+}
+
+.sl-ce-d {
+    color: @dim;
+    font-size: 10px;
+    letter-spacing: 0.08em;
+}
+
+// Short visuals: drop the long texts so the menu fits without scrolling.
+@container (max-height: 460px) {
+    .sl-brand-t {
+        font-size: 24px;
+    }
+
+    .sl-brand-s {
+        margin-bottom: 8px;
+    }
+
+    .sl-mode-d,
+    .sl-help,
+    .sl-line.dim {
+        display: none;
+    }
+
+    .sl-mode {
+        padding: 6px 10px;
+    }
+
+    .sl-classes,
+    .sl-buttons {
+        margin-top: 6px;
+    }
+
+    .sl-line {
+        margin-top: 6px;
+    }
+
+    .sl-btn {
+        padding: 5px 10px;
+    }
+}
+
+.sl-diag {
+    position: absolute;
+    left: 14px;
+    top: 74px;
+    padding: 4px 6px;
+    color: @khaki;
+    background: rgba(0, 0, 0, 0.45);
+    font-size: 10px;
+    line-height: 1.35;
+    white-space: pre;
+    pointer-events: none;
+}

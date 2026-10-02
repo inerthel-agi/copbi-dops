@@ -1,0 +1,37 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.7.0/schema.json",
+  "name": "cardWeapon",
+  "position": {
+    "x": 1044,
+    "y": 212,
+    "z": 4000,
+    "width": 220,
+    "height": 70,
+    "tabOrder": 4000
+  },
+  "visual": {
+    "visualType": "card",
+    "query": {
+      "queryState": {
+        "Values": {
+          "projections": [
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Weapons"
+                    }
+                  },
+                  "Property": "Equipped Weapon"
+                }
+              },
+              "queryRef": "Weapons.Equipped Weapon",
+              "nativeQueryRef": "Equipped Weapon"
+            }
+          ]
+        }
+      }
+    }
+  }
+}

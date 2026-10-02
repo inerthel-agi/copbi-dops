@@ -1,0 +1,73 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.7.0/schema.json",
+  "name": "title",
+  "position": {
+    "x": 16,
+    "y": 6,
+    "z": 10000,
+    "width": 1000,
+    "height": 42,
+    "tabOrder": 10000
+  },
+  "visual": {
+    "visualType": "textbox",
+    "objects": {
+      "general": [
+        {
+          "properties": {
+            "paragraphs": [
+              {
+                "textRuns": [
+                  {
+                    "value": "ARSENAL",
+                    "textStyle": {
+                      "fontFamily": "Bahnschrift SemiCondensed",
+                      "fontSize": "20pt",
+                      "color": "#F3EFE2"
+                    }
+                  },
+                  {
+                    "value": "   SAME RULES AS THE GAME: 100 HP · HEADSHOT x2 · HELMET 50 % · VEST 35 % · REDUCED BY ARMOR PEN",
+                    "textStyle": {
+                      "fontFamily": "Bahnschrift",
+                      "fontSize": "10pt",
+                      "color": "#8F8A72"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "visualContainerObjects": {
+      "background": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "false"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "border": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "false"
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

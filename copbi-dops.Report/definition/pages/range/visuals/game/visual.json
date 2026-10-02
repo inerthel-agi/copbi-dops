@@ -1,0 +1,170 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.7.0/schema.json",
+  "name": "game",
+  "position": {
+    "x": 16,
+    "y": 52,
+    "z": 2000,
+    "width": 1016,
+    "height": 652,
+    "tabOrder": 2000
+  },
+  "visual": {
+    "visualType": "copbidops62A8909F74E7A2707C2706542F4795A0",
+    "query": {
+      "queryState": {
+        "weapon": {
+          "projections": [
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Weapons"
+                    }
+                  },
+                  "Property": "Weapon"
+                }
+              },
+              "queryRef": "Weapons.Weapon",
+              "nativeQueryRef": "Weapon"
+            }
+          ]
+        },
+        "cls": {
+          "projections": [
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Weapons"
+                    }
+                  },
+                  "Property": "Class"
+                }
+              },
+              "queryRef": "Weapons.Class",
+              "nativeQueryRef": "Class"
+            }
+          ]
+        },
+        "damage": {
+          "projections": [
+            {
+              "field": {
+                "Aggregation": {
+                  "Expression": {
+                    "Column": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "Weapons"
+                        }
+                      },
+                      "Property": "Damage"
+                    }
+                  },
+                  "Function": 0
+                }
+              },
+              "queryRef": "Sum(Weapons.Damage)",
+              "nativeQueryRef": "Damage"
+            }
+          ]
+        },
+        "rpm": {
+          "projections": [
+            {
+              "field": {
+                "Aggregation": {
+                  "Expression": {
+                    "Column": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "Weapons"
+                        }
+                      },
+                      "Property": "FireRate"
+                    }
+                  },
+                  "Function": 0
+                }
+              },
+              "queryRef": "Sum(Weapons.FireRate)",
+              "nativeQueryRef": "FireRate"
+            }
+          ]
+        },
+        "mag": {
+          "projections": [
+            {
+              "field": {
+                "Aggregation": {
+                  "Expression": {
+                    "Column": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "Weapons"
+                        }
+                      },
+                      "Property": "Magazine"
+                    }
+                  },
+                  "Function": 0
+                }
+              },
+              "queryRef": "Sum(Weapons.Magazine)",
+              "nativeQueryRef": "Magazine"
+            }
+          ]
+        },
+        "pen": {
+          "projections": [
+            {
+              "field": {
+                "Aggregation": {
+                  "Expression": {
+                    "Column": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "Weapons"
+                        }
+                      },
+                      "Property": "ArmorPen"
+                    }
+                  },
+                  "Function": 0
+                }
+              },
+              "queryRef": "Sum(Weapons.ArmorPen)",
+              "nativeQueryRef": "ArmorPen"
+            }
+          ]
+        },
+        "recoil": {
+          "projections": [
+            {
+              "field": {
+                "Aggregation": {
+                  "Expression": {
+                    "Column": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "Weapons"
+                        }
+                      },
+                      "Property": "RecoilIndex"
+                    }
+                  },
+                  "Function": 0
+                }
+              },
+              "queryRef": "Sum(Weapons.RecoilIndex)",
+              "nativeQueryRef": "RecoilIndex"
+            }
+          ]
+        }
+      }
+    }
+  }
+}

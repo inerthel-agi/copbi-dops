@@ -1,0 +1,11 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/gitIntegration/platformProperties/2.0.0/schema.json",
+  "metadata": {
+    "type": "SemanticModel",
+    "displayName": "Call of Power BI: Data Ops"
+  },
+  "config": {
+    "version": "2.0",
+    "logicalId": "2e0dbc24-c578-41ae-a0fa-14fd7e544e82"
+  }
+}

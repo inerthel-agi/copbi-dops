@@ -1,0 +1,159 @@
+/// Original copbi-dops roster. Drives the custom visual through its data roles.
+/// The calculated columns mirror visual/src/rules.ts (100 HP, headshot x2, helmet 50 %, vest 35 %, damage x (1 - armor x (1 - ArmorPen))).
+table Weapons
+	lineageTag: a1dbb08b-f602-45f2-96b6-988c5051eb99
+
+	/// Weapon equipped in the game (the visual cross-filters this page through selectionManager).
+	measure 'Equipped Weapon' = SELECTEDVALUE ( Weapons[Weapon], "NO WEAPON SELECTED" )
+		lineageTag: 51f125c5-e4a0-4bb7-be0b-fed247e02364
+
+	measure 'Equipped Class' = SELECTEDVALUE ( Weapons[Class], "—" )
+		lineageTag: f5539d41-cb3a-4392-bdcf-4ea76ce60b15
+
+	measure 'Equipped Damage' =
+			VAR v = SELECTEDVALUE ( Weapons[Damage] )
+			RETURN IF ( ISBLANK ( v ), "—", FORMAT ( v, "0" ) & IF ( SELECTEDVALUE ( Weapons[Pellets] ) > 1, " x" & SELECTEDVALUE ( Weapons[Pellets] ), "" ) )
+		lineageTag: 22578125-7997-4c86-a8b7-8c78aab70880
+
+	measure 'Equipped RPM' =
+			VAR v = SELECTEDVALUE ( Weapons[FireRate] )
+			RETURN IF ( ISBLANK ( v ), "—", FORMAT ( v, "0" ) )
+		lineageTag: 0436d4c1-0ec1-4393-b82c-1752a0ee2d74
+
+	measure 'Equipped TTK' =
+			VAR v = SELECTEDVALUE ( Weapons[TTK (ms)] )
+			RETURN IF ( ISBLANK ( v ), "—", FORMAT ( v, "0" ) & " ms" )
+		lineageTag: b61ac8cb-b974-412e-b0e4-bf0ce07a423b
+
+	measure 'Equipped Helmet One-Shot' = SELECTEDVALUE ( Weapons[Helmet One-Shot], "—" )
+		lineageTag: 6204bc75-e757-42cb-9e9e-b81d5e457e2f
+
+	column Weapon
+		dataType: string
+		lineageTag: 471f77db-288b-439d-8678-8f85f35b1f41
+		summarizeBy: none
+		sourceColumn: Weapon
+
+		annotation SummarizationSetBy = Automatic
+
+	column Class
+		dataType: string
+		lineageTag: 2e4ce5b9-6ef9-4b66-b59d-a13bf37aed73
+		summarizeBy: none
+		sourceColumn: Class
+
+		annotation SummarizationSetBy = Automatic
+
+	/// Damage per projectile (per pellet for shotguns).
+	column Damage
+		dataType: int64
+		formatString: 0
+		lineageTag: b9c21aa0-2a08-4587-92b5-76d8e9156bfd
+		summarizeBy: sum
+		sourceColumn: Damage
+
+		annotation SummarizationSetBy = Automatic
+
+	/// Fire rate in rounds per minute (RPM).
+	column FireRate
+		dataType: int64
+		formatString: 0
+		lineageTag: 91380938-a7c7-4498-8397-e5d63faaa6d8
+		summarizeBy: sum
+		sourceColumn: FireRate
+
+		annotation SummarizationSetBy = Automatic
+
+	column Magazine
+		dataType: int64
+		formatString: 0
+		lineageTag: 1313b223-8c8d-4519-9d7f-bb5d201bc859
+		summarizeBy: sum
+		sourceColumn: Magazine
+
+		annotation SummarizationSetBy = Automatic
+
+	/// Armor penetration as a fraction (0.45 = 45 %).
+	column ArmorPen
+		dataType: double
+		formatString: 0%;-0%;0%
+		lineageTag: 5c36b259-0fc4-4237-8b74-89a146618dd2
+		summarizeBy: sum
+		sourceColumn: ArmorPen
+
+		annotation SummarizationSetBy = Automatic
+
+	/// 0 (no recoil) to 10 (heavy). Scales the seeded spray pattern.
+	column RecoilIndex
+		dataType: int64
+		formatString: 0
+		lineageTag: f823d408-c683-4277-9627-3c1e518b0fac
+		summarizeBy: sum
+		sourceColumn: RecoilIndex
+
+		annotation SummarizationSetBy = Automatic
+
+	column Pellets = IF ( Weapons[Class] = "Shotgun", 9, 1 )
+		dataType: int64
+		formatString: 0
+		lineageTag: 4e82614a-d3cd-4b1e-9033-e1b89160387e
+		summarizeBy: none
+
+		annotation SummarizationSetBy = Automatic
+
+	/// Body shots to kill an armored (vest) bot, all pellets landing.
+	column 'Shots To Kill' = ROUNDUP ( DIVIDE ( 100, Weapons[Damage] * Weapons[Pellets] * ( 1 - 0.35 * ( 1 - Weapons[ArmorPen] ) ) ), 0 )
+		dataType: int64
+		formatString: 0
+		lineageTag: 6d4d9021-55ad-42be-9ba0-0865a5d48d24
+		summarizeBy: sum
+
+		annotation SummarizationSetBy = Automatic
+
+	/// Time to kill in milliseconds: (shots to kill - 1) x 60000 / RPM.
+	column 'TTK (ms)' = ROUND ( ( Weapons[Shots To Kill] - 1 ) * 60000 / Weapons[FireRate], 0 )
+		dataType: int64
+		formatString: 0
+		lineageTag: 7771d922-85c0-4918-90ff-f9e188e6d7cd
+		summarizeBy: sum
+
+		annotation SummarizationSetBy = Automatic
+
+	column DPS = ROUND ( Weapons[Damage] * Weapons[Pellets] * Weapons[FireRate] / 60, 0 )
+		dataType: int64
+		formatString: 0
+		lineageTag: d4098c0f-f180-486f-9e3b-1e3e4a23bf13
+		summarizeBy: sum
+
+		annotation SummarizationSetBy = Automatic
+
+	/// Does one headshot kill a helmeted bot? Damage x pellets x 2 x (1 - 0.5 x (1 - ArmorPen)) >= 100.
+	column 'Helmet One-Shot' = IF ( Weapons[Damage] * Weapons[Pellets] * 2 * ( 1 - 0.5 * ( 1 - Weapons[ArmorPen] ) ) >= 100, "Yes", "No" )
+		dataType: string
+		lineageTag: f97369bd-2df2-4d91-9ff9-12a0fd81c2c2
+		summarizeBy: none
+
+		annotation SummarizationSetBy = Automatic
+
+	partition Weapons = m
+		mode: import
+		source =
+				let
+				    Source = #table(
+				        type table [Weapon = text, Class = text, Damage = Int64.Type, FireRate = Int64.Type, Magazine = Int64.Type, ArmorPen = number, RecoilIndex = Int64.Type],
+				        {
+				            {"R-7 Carbine", "Assault", 30, 720, 30, 0.45, 5},
+				            {"Kestrel AR", "Assault", 34, 600, 30, 0.55, 7},
+				            {"Hawk SMG", "SMG", 22, 900, 32, 0.25, 3},
+				            {"Moth PDW", "SMG", 19, 1000, 40, 0.30, 4},
+				            {"Longshot", "Sniper", 95, 45, 5, 0.90, 9},
+				            {"Talon DMR", "Marksman", 58, 240, 10, 0.75, 6},
+				            {"Ward-9", "Pistol", 26, 400, 12, 0.20, 2},
+				            {"Brute", "Shotgun", 14, 70, 6, 0.10, 8}
+				        }
+				    )
+				in
+				    Source
+
+	annotation PBI_ResultType = Table
+

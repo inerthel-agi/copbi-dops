@@ -1,0 +1,239 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.7.0/schema.json",
+  "name": "stats",
+  "position": {
+    "x": 16,
+    "y": 464,
+    "z": 15000,
+    "width": 1248,
+    "height": 240,
+    "tabOrder": 15000
+  },
+  "visual": {
+    "visualType": "tableEx",
+    "query": {
+      "queryState": {
+        "Values": {
+          "projections": [
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Weapons"
+                    }
+                  },
+                  "Property": "Weapon"
+                }
+              },
+              "queryRef": "Weapons.Weapon",
+              "nativeQueryRef": "Weapon"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Weapons"
+                    }
+                  },
+                  "Property": "Class"
+                }
+              },
+              "queryRef": "Weapons.Class",
+              "nativeQueryRef": "Class"
+            },
+            {
+              "field": {
+                "Aggregation": {
+                  "Expression": {
+                    "Column": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "Weapons"
+                        }
+                      },
+                      "Property": "Damage"
+                    }
+                  },
+                  "Function": 0
+                }
+              },
+              "queryRef": "Sum(Weapons.Damage)",
+              "nativeQueryRef": "Damage"
+            },
+            {
+              "field": {
+                "Aggregation": {
+                  "Expression": {
+                    "Column": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "Weapons"
+                        }
+                      },
+                      "Property": "FireRate"
+                    }
+                  },
+                  "Function": 0
+                }
+              },
+              "queryRef": "Sum(Weapons.FireRate)",
+              "nativeQueryRef": "FireRate"
+            },
+            {
+              "field": {
+                "Aggregation": {
+                  "Expression": {
+                    "Column": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "Weapons"
+                        }
+                      },
+                      "Property": "Magazine"
+                    }
+                  },
+                  "Function": 0
+                }
+              },
+              "queryRef": "Sum(Weapons.Magazine)",
+              "nativeQueryRef": "Magazine"
+            },
+            {
+              "field": {
+                "Aggregation": {
+                  "Expression": {
+                    "Column": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "Weapons"
+                        }
+                      },
+                      "Property": "ArmorPen"
+                    }
+                  },
+                  "Function": 0
+                }
+              },
+              "queryRef": "Sum(Weapons.ArmorPen)",
+              "nativeQueryRef": "ArmorPen"
+            },
+            {
+              "field": {
+                "Aggregation": {
+                  "Expression": {
+                    "Column": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "Weapons"
+                        }
+                      },
+                      "Property": "RecoilIndex"
+                    }
+                  },
+                  "Function": 0
+                }
+              },
+              "queryRef": "Sum(Weapons.RecoilIndex)",
+              "nativeQueryRef": "RecoilIndex"
+            },
+            {
+              "field": {
+                "Aggregation": {
+                  "Expression": {
+                    "Column": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "Weapons"
+                        }
+                      },
+                      "Property": "Shots To Kill"
+                    }
+                  },
+                  "Function": 0
+                }
+              },
+              "queryRef": "Sum(Weapons.Shots To Kill)",
+              "nativeQueryRef": "Shots To Kill"
+            },
+            {
+              "field": {
+                "Aggregation": {
+                  "Expression": {
+                    "Column": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "Weapons"
+                        }
+                      },
+                      "Property": "TTK (ms)"
+                    }
+                  },
+                  "Function": 0
+                }
+              },
+              "queryRef": "Sum(Weapons.TTK (ms))",
+              "nativeQueryRef": "TTK (ms)"
+            },
+            {
+              "field": {
+                "Aggregation": {
+                  "Expression": {
+                    "Column": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "Weapons"
+                        }
+                      },
+                      "Property": "DPS"
+                    }
+                  },
+                  "Function": 0
+                }
+              },
+              "queryRef": "Sum(Weapons.DPS)",
+              "nativeQueryRef": "DPS"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Weapons"
+                    }
+                  },
+                  "Property": "Helmet One-Shot"
+                }
+              },
+              "queryRef": "Weapons.Helmet One-Shot",
+              "nativeQueryRef": "Helmet One-Shot"
+            }
+          ]
+        }
+      }
+    },
+    "visualContainerObjects": {
+      "title": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "true"
+                }
+              }
+            },
+            "text": {
+              "expr": {
+                "Literal": {
+                  "Value": "'WEAPONS TABLE · DRIVES THE GAME THROUGH THE VISUAL'S DATA ROLES'"
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

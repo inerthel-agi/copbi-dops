@@ -1,0 +1,15 @@
+{
+  "compilerOptions": {
+    "allowJs": false,
+    "strict": false,
+    "noImplicitAny": true,
+    "skipLibCheck": true,
+    "target": "es2022",
+    "module": "es2022",
+    "moduleResolution": "bundler",
+    "sourceMap": true,
+    "outDir": "./.tmp/build/",
+    "lib": ["es2022", "dom"]
+  },
+  "files": ["./src/visual.ts"]
+}

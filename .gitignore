@@ -1,0 +1,7 @@
+**/.pbi/localSettings.json
+**/.pbi/cache.abf
+node_modules/
+visual/.tmp/
+visual/dist/
+visual/test/out/
+visual/webpack.statistics*.html

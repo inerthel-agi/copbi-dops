@@ -1,0 +1,20 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/page/2.1.0/schema.json",
+  "name": "range",
+  "displayName": "Range",
+  "displayOption": "FitToPage",
+  "width": 1280,
+  "height": 720,
+  "visualInteractions": [
+    {
+      "source": "game",
+      "target": "classSlicer",
+      "type": "NoFilter"
+    },
+    {
+      "source": "game",
+      "target": "loadout",
+      "type": "NoFilter"
+    }
+  ]
+}

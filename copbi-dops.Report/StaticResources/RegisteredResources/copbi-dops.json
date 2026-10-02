@@ -1,0 +1,119 @@
+{
+  "name": "Call of Power BI: Data Ops",
+  "dataColors": [
+    "#FF7A1A",
+    "#8F9A68",
+    "#C2B48E",
+    "#6B6F4A",
+    "#B58E6C",
+    "#D6CEA9",
+    "#5C613F",
+    "#8F8A72",
+    "#A9A07C",
+    "#4F5435"
+  ],
+  "foreground": "#D6CEA9",
+  "foregroundNeutralSecondary": "#8F8A72",
+  "foregroundNeutralTertiary": "#5E5B4C",
+  "background": "#1F211C",
+  "backgroundLight": "#2A2C26",
+  "backgroundNeutral": "#3A3C34",
+  "tableAccent": "#FF7A1A",
+  "good": "#8F9A68",
+  "neutral": "#C2B48E",
+  "bad": "#E2483A",
+  "maximum": "#FF7A1A",
+  "center": "#C2B48E",
+  "minimum": "#2A2C26",
+  "textClasses": {
+    "callout": {
+      "fontSize": 20,
+      "fontFace": "Bahnschrift Condensed",
+      "color": "#F3EFE2"
+    },
+    "title": {
+      "fontSize": 12,
+      "fontFace": "Bahnschrift SemiCondensed",
+      "color": "#D6CEA9"
+    },
+    "header": {
+      "fontSize": 12,
+      "fontFace": "Bahnschrift SemiCondensed",
+      "color": "#D6CEA9"
+    },
+    "label": {
+      "fontSize": 10,
+      "fontFace": "Bahnschrift",
+      "color": "#B9B293"
+    }
+  },
+  "visualStyles": {
+    "*": {
+      "*": {
+        "background": [
+          {
+            "show": true,
+            "color": {
+              "solid": {
+                "color": "#23251F"
+              }
+            },
+            "transparency": 0
+          }
+        ],
+        "border": [
+          {
+            "show": true,
+            "color": {
+              "solid": {
+                "color": "#3A3C34"
+              }
+            },
+            "radius": 0
+          }
+        ],
+        "title": [
+          {
+            "show": true,
+            "fontColor": {
+              "solid": {
+                "color": "#D6CEA9"
+              }
+            },
+            "fontFamily": "Bahnschrift SemiCondensed",
+            "fontSize": 11
+          }
+        ],
+        "dropShadow": [
+          {
+            "show": false
+          }
+        ]
+      }
+    },
+    "page": {
+      "*": {
+        "background": [
+          {
+            "color": {
+              "solid": {
+                "color": "#171913"
+              }
+            },
+            "transparency": 0
+          }
+        ],
+        "outspace": [
+          {
+            "color": {
+              "solid": {
+                "color": "#0F100C"
+              }
+            },
+            "transparency": 0
+          }
+        ]
+      }
+    }
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/gitIntegration/platformProperties/2.0.0/schema.json",
+  "metadata": {
+    "type": "Report",
+    "displayName": "Call of Power BI: Data Ops"
+  },
+  "config": {
+    "version": "2.0",
+    "logicalId": "5fb35ccd-f4e5-4089-b065-674cd392a45f"
+  }
+}

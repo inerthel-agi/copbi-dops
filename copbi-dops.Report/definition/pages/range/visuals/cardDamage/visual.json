@@ -1,0 +1,37 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.7.0/schema.json",
+  "name": "cardDamage",
+  "position": {
+    "x": 1044,
+    "y": 292,
+    "z": 5000,
+    "width": 106,
+    "height": 70,
+    "tabOrder": 5000
+  },
+  "visual": {
+    "visualType": "card",
+    "query": {
+      "queryState": {
+        "Values": {
+          "projections": [
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Weapons"
+                    }
+                  },
+                  "Property": "Equipped Damage"
+                }
+              },
+              "queryRef": "Weapons.Equipped Damage",
+              "nativeQueryRef": "Equipped Damage"
+            }
+          ]
+        }
+      }
+    }
+  }
+}

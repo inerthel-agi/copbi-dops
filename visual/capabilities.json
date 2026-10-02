@@ -1,0 +1,279 @@
+{
+  "dataRoles": [
+    {
+      "displayName": "Weapon",
+      "name": "weapon",
+      "kind": "Grouping"
+    },
+    {
+      "displayName": "Class",
+      "name": "cls",
+      "kind": "Grouping"
+    },
+    {
+      "displayName": "Damage",
+      "name": "damage",
+      "kind": "Measure"
+    },
+    {
+      "displayName": "Fire rate (RPM)",
+      "name": "rpm",
+      "kind": "Measure"
+    },
+    {
+      "displayName": "Magazine",
+      "name": "mag",
+      "kind": "Measure"
+    },
+    {
+      "displayName": "Armor pen %",
+      "name": "pen",
+      "kind": "Measure"
+    },
+    {
+      "displayName": "Recoil index",
+      "name": "recoil",
+      "kind": "Measure"
+    }
+  ],
+  "dataViewMappings": [
+    {
+      "conditions": [
+        {
+          "weapon": {
+            "max": 1
+          },
+          "cls": {
+            "max": 1
+          },
+          "damage": {
+            "max": 1
+          },
+          "rpm": {
+            "max": 1
+          },
+          "mag": {
+            "max": 1
+          },
+          "pen": {
+            "max": 1
+          },
+          "recoil": {
+            "max": 1
+          }
+        }
+      ],
+      "categorical": {
+        "categories": {
+          "select": [
+            {
+              "bind": {
+                "to": "weapon"
+              }
+            },
+            {
+              "bind": {
+                "to": "cls"
+              }
+            }
+          ],
+          "dataReductionAlgorithm": {
+            "top": {
+              "count": 30
+            }
+          }
+        },
+        "values": {
+          "select": [
+            {
+              "bind": {
+                "to": "damage"
+              }
+            },
+            {
+              "bind": {
+                "to": "rpm"
+              }
+            },
+            {
+              "bind": {
+                "to": "mag"
+              }
+            },
+            {
+              "bind": {
+                "to": "pen"
+              }
+            },
+            {
+              "bind": {
+                "to": "recoil"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "objects": {
+    "gameplay": {
+      "displayName": "Gameplay",
+      "properties": {
+        "sensitivity": {
+          "displayName": "Look sensitivity",
+          "type": {
+            "numeric": true
+          }
+        },
+        "invertY": {
+          "displayName": "Invert vertical look",
+          "type": {
+            "bool": true
+          }
+        },
+        "fov": {
+          "displayName": "Field of view",
+          "type": {
+            "numeric": true
+          }
+        },
+        "difficulty": {
+          "displayName": "Bot difficulty",
+          "type": {
+            "enumeration": [
+              {
+                "value": "easy",
+                "displayName": "Easy"
+              },
+              {
+                "value": "normal",
+                "displayName": "Normal"
+              },
+              {
+                "value": "hard",
+                "displayName": "Hard"
+              },
+              {
+                "value": "veteran",
+                "displayName": "Veteran"
+              }
+            ]
+          }
+        },
+        "volume": {
+          "displayName": "Volume",
+          "type": {
+            "numeric": true
+          }
+        },
+        "lookMode": {
+          "displayName": "Look mode",
+          "type": {
+            "enumeration": [
+              {
+                "value": "capture",
+                "displayName": "Capture (click, cursor hidden)"
+              },
+              {
+                "value": "drag",
+                "displayName": "Drag (hold left button)"
+              },
+              {
+                "value": "joystick",
+                "displayName": "Joystick (cursor offset, no button)"
+              }
+            ]
+          }
+        },
+        "pauseOnBlur": {
+          "displayName": "Pause when the visual loses focus",
+          "type": {
+            "bool": true
+          }
+        }
+      }
+    },
+    "display": {
+      "displayName": "Display",
+      "properties": {
+        "quality": {
+          "displayName": "Graphics quality",
+          "type": {
+            "enumeration": [
+              {
+                "value": "high",
+                "displayName": "High (shadows)"
+              },
+              {
+                "value": "low",
+                "displayName": "Low (no shadows)"
+              }
+            ]
+          }
+        },
+        "diagnostics": {
+          "displayName": "Diagnostics overlay",
+          "type": {
+            "bool": true
+          }
+        }
+      }
+    },
+    "records": {
+      "displayName": "Best scores",
+      "properties": {
+        "rangeKills": {
+          "displayName": "Aim Range targets",
+          "type": {
+            "numeric": true
+          }
+        },
+        "duelKills": {
+          "displayName": "Bot Duel kills",
+          "type": {
+            "numeric": true
+          }
+        },
+        "survivalWave": {
+          "displayName": "Survival wave",
+          "type": {
+            "numeric": true
+          }
+        },
+        "accuracy": {
+          "displayName": "Accuracy %",
+          "type": {
+            "numeric": true
+          }
+        },
+        "spray": {
+          "displayName": "Spray score",
+          "type": {
+            "numeric": true
+          }
+        },
+        "bestTtk": {
+          "displayName": "Best TTK (ms)",
+          "type": {
+            "numeric": true
+          }
+        }
+      }
+    },
+    "loadouts": {
+      "displayName": "Classes",
+      "properties": {
+        "data": {
+          "displayName": "Classes (JSON, edited in the game menu)",
+          "type": {
+            "text": true
+          }
+        }
+      }
+    }
+  },
+  "privileges": [],
+  "supportsKeyboardFocus": true,
+  "supportsEmptyDataView": true,
+  "suppressDefaultTitle": true
+}

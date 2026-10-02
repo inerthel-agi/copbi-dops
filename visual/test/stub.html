@@ -1,0 +1,24 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>copbi-dops sandbox stub</title>
+<style>
+    html, body { margin: 0; height: 100%; background: #2b2b2b; color: #ccc; font: 12px sans-serif; }
+    iframe { border: 0; position: absolute; left: 20px; top: 20px; }
+</style>
+<!-- Same restriction the other developer reported for Power BI: scripts only, opaque origin. -->
+<iframe id="visual" sandbox="allow-scripts" src="frame.html"></iframe>
+<script>
+    const q = new URLSearchParams(location.search);
+    const frame = document.getElementById("visual");
+    frame.width = q.get("w") || 960;
+    frame.height = q.get("h") || 540;
+    window.results = { last: null, errors: [] };
+    window.send = m => frame.contentWindow.postMessage(m, "*");
+    window.acks = [];
+    addEventListener("message", e => {
+        if (e.source !== frame.contentWindow) return;
+        if (e.data.type === "error") window.results.errors.push(e.data.msg);
+        else if (e.data.type === "ack") window.acks.push(e.data.ok);
+        else window.results.last = e.data;
+    });
+</script>

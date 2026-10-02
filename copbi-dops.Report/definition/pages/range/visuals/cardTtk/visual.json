@@ -1,0 +1,37 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.7.0/schema.json",
+  "name": "cardTtk",
+  "position": {
+    "x": 1044,
+    "y": 372,
+    "z": 7000,
+    "width": 106,
+    "height": 70,
+    "tabOrder": 7000
+  },
+  "visual": {
+    "visualType": "card",
+    "query": {
+      "queryState": {
+        "Values": {
+          "projections": [
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Weapons"
+                    }
+                  },
+                  "Property": "Equipped TTK"
+                }
+              },
+              "queryRef": "Weapons.Equipped TTK",
+              "nativeQueryRef": "Equipped TTK"
+            }
+          ]
+        }
+      }
+    }
+  }
+}
