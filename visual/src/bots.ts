@@ -1,5 +1,5 @@
 import {
-    AdditiveBlending, BoxGeometry, DoubleSide, Group, Mesh, MeshBasicMaterial, MeshStandardMaterial, PlaneGeometry, Vector3
+    AdditiveBlending, BoxGeometry, DoubleSide, Group, Mesh, MeshBasicMaterial, MeshStandardMaterial, OctahedronGeometry, PlaneGeometry, Vector3
 } from "three";
 import { Rng, Zone } from "./rules";
 import { Box, CoverPoint, Vec, World } from "./world";
@@ -17,8 +17,13 @@ const M = {
     steel: new MeshStandardMaterial({ color: 0xcfc7a6, roughness: 0.55, metalness: 0.2 }),
     steelHead: new MeshStandardMaterial({ color: 0xc08a50, roughness: 0.55, metalness: 0.2 }),
     post: new MeshStandardMaterial({ color: 0x2c2e2b, roughness: 0.6, metalness: 0.4 }),
+    skin: new MeshStandardMaterial({ color: 0x7d8a5e, roughness: 0.95 }),
+    bandAlly: new MeshStandardMaterial({ color: 0x3a7bd5, emissive: 0x0d2a5a, roughness: 0.6 }),
+    scalp: new MeshStandardMaterial({ color: 0x3a3a2a, roughness: 1 }),
 };
 let flashMat: MeshBasicMaterial | null = null;
+/** Friendly marker above allies, drawn through walls. */
+let allyMark: { geo: OctahedronGeometry; mat: MeshBasicMaterial } | null = null;
 
 const geo = new Map<string, BoxGeometry>();
 /** Shared box geometry; pivot = top-center when hang is true (limbs). */
@@ -55,6 +60,12 @@ export interface BotContext {
     others: Bot[];
     /** eye = ray origin (matches the line-of-sight test), muzzle = tracer start. */
     shoot(bot: Bot, eye: Vector3, muzzle: Vector3, errorMult: number): void;
+    /** Zombie claw within reach. */
+    melee(bot: Bot): void;
+    /** Enemy this bot fights: a bot, null for the player, undefined when there is none (Domination teams). */
+    pickTarget(bot: Bot): Bot | null | undefined;
+    /** Zombie run speed (m/s) before the per-zombie factor. */
+    zombieSpeed: number;
 }
 
 export type BotState = "move" | "hide" | "peek" | "dead";
@@ -75,6 +86,14 @@ export class Bot {
     respawnAt = -1;
     /** Time of the first hit received (TTK start), -1 when untouched. */
     firstHit = -1;
+    /** Domination: zone to take or hold. Overrides the cover logic while set. */
+    objective: { x: number; z: number } | null = null;
+    /** Zombie speed factor (sprinters vs shamblers). */
+    speedMul = 1;
+    /** Eye position, updated every frame (other bots aim at it). */
+    readonly head = new Vector3();
+    /** Current enemy: a bot, null = the player, undefined = nobody to fight. */
+    tBot: Bot | null | undefined = null;
 
     private body = new Group();
     private legL: Mesh;
@@ -106,20 +125,44 @@ export class Bot {
     private tmp = new Vector3();
     private eye = new Vector3();
 
-    constructor(readonly name: string) {
+    /** zombie: no helmet, no gun, pale skin, torn shirt; runs at the player and claws (see update). */
+    /** team: -1 hostile (default), 1 the player's side (Domination allies: blue band and vest). */
+    constructor(readonly name: string, readonly zombie = false, readonly team = -1) {
         this.vestMat = M.vest.clone();
+        if (zombie) {
+            this.vestMat.color.setHex(0x5a4d3e);
+            this.armored = false;
+        }
+        if (team === 1) {
+            this.vestMat.color.setHex(0x4f5d6e);
+            allyMark ??= { geo: new OctahedronGeometry(0.09), mat: new MeshBasicMaterial({ color: 0x4aa3ff, depthTest: false, transparent: true, opacity: 0.9 }) };
+            const mark = new Mesh(allyMark.geo, allyMark.mat);
+            mark.position.y = 2.15;
+            mark.scale.y = 1.6;
+            mark.renderOrder = 10;
+            this.body.add(mark);
+        }
         this.group.rotation.order = "YXZ";
         this.legL = part(this.group, M.uniform, 0.17, 0.9, 0.19, -0.1, 0.9, 0, true);
         this.legR = part(this.group, M.uniform, 0.17, 0.9, 0.19, 0.1, 0.9, 0, true);
         const b = this.body;
         part(b, M.uniform, 0.44, 0.58, 0.25, 0, 1.19, 0);
         part(b, this.vestMat, 0.5, 0.42, 0.31, 0, 1.22, 0);
-        part(b, M.face, 0.21, 0.24, 0.23, 0, 1.6, 0);
-        part(b, M.helmet, 0.27, 0.13, 0.29, 0, 1.73, 0.01);
-        part(b, M.band, 0.272, 0.03, 0.03, 0, 1.69, -0.14);
-        part(b, M.uniform, 0.11, 0.11, 0.48, 0.2, 1.36, -0.2);
-        part(b, M.uniform, 0.11, 0.11, 0.42, -0.14, 1.33, -0.28);
-        part(b, M.gun, 0.06, 0.09, 0.78, 0.1, 1.33, -0.42);
+        part(b, zombie ? M.skin : M.face, 0.21, 0.24, 0.23, 0, 1.6, 0);
+        if (zombie) {
+            part(b, M.scalp, 0.22, 0.06, 0.24, 0, 1.74, 0.01);
+            // Both arms reaching forward, skin-colored hands.
+            part(b, M.uniform, 0.11, 0.11, 0.5, 0.17, 1.4, -0.3);
+            part(b, M.uniform, 0.11, 0.11, 0.5, -0.17, 1.4, -0.3);
+            part(b, M.skin, 0.1, 0.1, 0.12, 0.17, 1.4, -0.6);
+            part(b, M.skin, 0.1, 0.1, 0.12, -0.17, 1.4, -0.6);
+        } else {
+            part(b, M.helmet, 0.27, 0.13, 0.29, 0, 1.73, 0.01);
+            part(b, team === 1 ? M.bandAlly : M.band, 0.272, 0.03, 0.03, 0, 1.69, -0.14);
+            part(b, M.uniform, 0.11, 0.11, 0.48, 0.2, 1.36, -0.2);
+            part(b, M.uniform, 0.11, 0.11, 0.42, -0.14, 1.33, -0.28);
+            part(b, M.gun, 0.06, 0.09, 0.78, 0.1, 1.33, -0.42);
+        }
         flashMat ??= new MeshBasicMaterial({ map: flashTexture(), transparent: true, blending: AdditiveBlending, depthWrite: false, side: DoubleSide });
         this.flash = new Mesh(new PlaneGeometry(0.35, 0.35), flashMat);
         this.flash.position.set(0.1, 1.34, -0.86);
@@ -143,6 +186,7 @@ export class Bot {
         this.burst = 0;
         this.shotCd = 0.5;
         this.lastSeen = Infinity; // reset to "now" on the first update
+        this.objective = null;
         this.group.visible = true;
         this.group.rotation.set(0, yaw, 0);
         this.group.position.copy(this.pos);
@@ -192,22 +236,57 @@ export class Bot {
             return;
         }
         this.shotCd -= dt;
+        this.head.set(this.pos.x, 1.62 - SINK * this.crouch, this.pos.z);
         this.losT -= dt;
+        // The enemy being fought: the player (default) or a bot of the other team, re-picked with each sight check.
         if (this.losT <= 0) {
             this.losT = 0.1 + c.r() * 0.06;
-            this.tmp.set(this.pos.x, 1.62 - SINK * this.crouch, this.pos.z);
-            this.visible = c.playerAlive && c.world.los(this.tmp, c.eye);
+            this.tBot = c.pickTarget(this);
+            const t0 = this.tBot, alive0 = t0 === undefined ? false : t0 ? t0.alive : c.playerAlive;
+            this.visible = alive0 && c.world.los(this.head, t0 ? t0.head : c.eye);
             if (this.visible || this.lastSeen > c.now) this.lastSeen = c.now;
         }
+        const t = this.tBot, tAlive = t === undefined ? false : t ? t.alive : c.playerAlive;
+        const tFeet = t ? t.pos : c.feet;
         // Camping a spot that never sees the player: move up toward the player's position.
-        if (c.playerAlive && c.now - this.lastSeen > 5) {
+        if (!this.zombie && !this.objective && tAlive && c.now - this.lastSeen > 5) {
             this.lastSeen = c.now;
             this.push(c);
         }
         const reaction = 0.7 - 0.55 * c.skill;
         let wantCrouch = false, speed = 3.4;
 
-        if (this.state === "move") {
+        if (this.zombie) {
+            // Run at the player along a path refreshed twice a second, claw when within reach.
+            this.state = "move";
+            speed = c.zombieSpeed * this.speedMul;
+            const d = dist2(this.pos, c.feet);
+            if ((this.timer -= dt) <= 0 || !this.path.length) {
+                this.path = d < 2.5 ? [{ x: c.feet.x, z: c.feet.z }] : c.world.findPath(this.pos.x, this.pos.z, c.feet.x, c.feet.z);
+                this.timer = d < 6 ? 0.15 : 0.5;
+            }
+            if (d < 1) this.path = [];
+            if (d < 1.4 && c.playerAlive && this.shotCd <= 0) {
+                this.shotCd = 0.9;
+                this.lastShot = c.now;
+                c.melee(this);
+            }
+        } else if (this.objective) {
+            // Domination: walk to the zone, then hold it standing and shoot whatever shows up.
+            const o = this.objective, far = dist2(this.pos, o) > 1.8;
+            this.state = far ? "move" : "peek";
+            this.goal = null;
+            speed = 3.6;
+            if (!far) this.path = [];
+            else if (!this.path.length && (this.timer -= dt) <= 0) {
+                this.path = c.world.findPath(this.pos.x, this.pos.z, o.x, o.z);
+                this.timer = 1;
+            }
+            if (this.visible && dist2(this.pos, tFeet) < 40) {
+                this.seenFor += dt;
+                if (this.seenFor > reaction) this.tryShoot(c, far ? 1.6 : 1.1);
+            } else this.seenFor = 0;
+        } else if (this.state === "move") {
             if (!this.path.length) {
                 if (this.cover) this.toHide(c);
                 else if ((this.timer -= dt) <= 0) {
@@ -215,7 +294,7 @@ export class Bot {
                     this.timer = 1;
                 }
             }
-            if (this.visible && dist2(this.pos, c.feet) < 30) {
+            if (this.visible && dist2(this.pos, tFeet) < 30) {
                 this.seenFor += dt;
                 if (this.seenFor > reaction * 1.4) this.tryShoot(c, 1.8);
             } else this.seenFor = 0;
@@ -274,7 +353,7 @@ export class Bot {
                     const goal = this.path[this.path.length - 1];
                     const raw = c.world.findPath(this.pos.x, this.pos.z, goal.x, goal.z, false);
                     if (raw.length > 1) this.path = raw;
-                    else this.pickCover(c);
+                    else if (!this.zombie && !this.objective) this.pickCover(c);
                 }
                 this.stuckT = 0;
                 this.stuckFrom.copy(this.pos);
@@ -282,7 +361,7 @@ export class Bot {
         }
 
         const faceYaw = this.visible && (this.state !== "move" || this.seenFor > 0)
-            ? Math.atan2(-(c.feet.x - this.pos.x), -(c.feet.z - this.pos.z)) : moveYaw;
+            ? Math.atan2(-(tFeet.x - this.pos.x), -(tFeet.z - this.pos.z)) : moveYaw;
         const dy = wrap(faceYaw - this.yaw);
         this.yaw += Math.sign(dy) * Math.min(Math.abs(dy), 7 * dt);
         this.crouch += ((wantCrouch ? 1 : 0) - this.crouch) * Math.min(1, dt * 8);

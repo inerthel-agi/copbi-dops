@@ -29,6 +29,8 @@ export class Hud {
     private timerLabel: HTMLElement;
     private timerValue: HTMLElement;
     private timerSub: HTMLElement;
+    private zoneBox: HTMLElement;
+    private zoneChips: { box: HTMLElement; fill: HTMLElement }[] = [];
     private feedBox: HTMLElement;
     private feedItems: FeedEntry[] = [];
     private cross: HTMLElement;
@@ -92,6 +94,7 @@ export class Hud {
         this.timerLabel = el("div", "sl-timer-l", timer);
         this.timerValue = el("div", "sl-timer-v", timer);
         this.timerSub = el("div", "sl-timer-s", timer);
+        this.zoneBox = el("div", "sl-zones", timer);
 
         this.feedBox = el("div", "sl-feed", play);
 
@@ -165,6 +168,23 @@ export class Hud {
         this.set(this.timerValue, value);
         this.set(this.timerSub, sub);
         this.timerValue.classList.toggle("urgent", urgent);
+    }
+
+    /** Domination chips under the timer: letter, owner color, capture progress bar, outline when the player stands in it. */
+    zones(list: { name: string; owner: number; prog: number; here: boolean }[]): void {
+        this.zoneBox.style.display = list.length ? "" : "none";
+        while (this.zoneChips.length < list.length) {
+            const box = el("div", "sl-zone", this.zoneBox);
+            el("span", "sl-zone-n", box);
+            this.zoneChips.push({ box, fill: el("div", "sl-zone-f", box) });
+        }
+        list.forEach((z, i) => {
+            const c = this.zoneChips[i], cls = `sl-zone ${z.owner === 1 ? "mine" : z.owner === -1 ? "theirs" : ""}${z.here ? " here" : ""}`;
+            if (c.box.className !== cls) c.box.className = cls;
+            this.set(c.box.firstChild as HTMLElement, z.name);
+            c.fill.style.width = `${Math.abs(z.prog) * 100}%`;
+            c.fill.style.background = z.prog >= 0 ? "#4aa3ff" : "#e2483a";
+        });
     }
 
     joystick(on: boolean): void {

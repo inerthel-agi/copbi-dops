@@ -441,31 +441,37 @@ async function scenario({ ws, send, logs, requests }) {
     s = await waitFor(x => x.records.rangeKills >= 4, 2000);
     ok("persisted records come back through update()", s.records.rangeKills >= 4, JSON.stringify(s.records));
 
-    // Menu (M) clears the selection, then Bot Duel.
+    // Menu (M) clears the selection, then Domination.
     await key("KeyM");
     s = await waitFor(x => x.state === "menu");
     L = (await last()).log;
     ok("M returns to the menu and clears the selection", s.state === "menu" && L.select.at(-1) === null);
     await key("Digit2");
-    s = await waitFor(x => x.mode === "duel" && x.bots === 1, 5000);
-    ok("Bot Duel spawns one bot", s.mode === "duel" && s.bots === 1);
+    s = await waitFor(x => x.mode === "dom" && x.bots === 5 && x.allies === 2 && x.zones?.length === 3, 6000);
+    ok("Domination spawns 3 hostiles, 2 allies and zones A, B, C", s.mode === "dom" && s.bots === 5 && s.allies === 2 && s.zones?.map(z => z.name).join("") === "ABC",
+        `bots=${s.bots} zones=${s.zones?.map(z => `${z.name}(${z.x},${z.z})`).join(" ")}`);
+    await msg({ type: "teleport", zone: 0 });
     await msg({ type: "crouchHead" });
     await sleep(200);
     const headFit = await top("window.acks.at(-1)");
     ok("bot head hitbox matches the drawn head (standing and crouched)", headFit === "ok,ok", headFit);
-    const states = new Set();
+    s = await waitFor(x => x.zones[0].owner === 1, 8000);
+    ok("standing in zone A captures it (4 s)", s.zones[0].owner === 1, `A owner=${s.zones[0].owner} prog=${s.zones[0].prog} alive=${s.alive}`);
+    await sleep(2300);
+    s = await snap();
+    ok("held zones score a point per second", s.dom.you >= 2, `score ${s.dom.you} - ${s.dom.them}`);
     let firstShot = null;
-    for (let i = 0; i < 24; i++) {
+    for (let i = 0; i < 24 && firstShot === null; i++) {
         await sleep(500);
         const x = await snap();
-        x.botStates.forEach(b => states.add(b));
-        if (firstShot === null && x.botShots > 0) firstShot = x.time;
+        if (x.botShots > 0) firstShot = x.time;
     }
-    info.push(`duel: first bot shot at ${firstShot ?? "none within 12 s"} s of play`);
-    // The first shot depends on where the bot peeks (seeded but timing-dependent): wait for it instead of a fixed delay.
-    s = await waitFor(x => x.botShots >= 1, 15000);
-    await shot("07-duel");
-    ok("duel bot moves, hides and peeks", states.has("hide") && states.has("peek"), [...states].join(","));
+    info.push(`domination: first hostile shot at ${firstShot ?? "none within 12 s"} s of play`);
+    s = await waitFor(x => x.zones.some(z => z.owner === -1), 30000);
+    await shot("07-domination");
+    ok("hostiles take zones too", s.zones.some(z => z.owner === -1), s.zones.map(z => `${z.name}:${z.owner}`).join(" "));
+    s = await waitFor(x => x.allyShots > 0, 20000);
+    ok("allies fight the hostiles", s.allyShots > 0, `allyShots=${s.allyShots} score ${s.dom.you} - ${s.dom.them}`);
     await msg({ type: "spawnCheck" });
     await sleep(1500);
     const sp = await top("window.acks.at(-1)");
@@ -473,26 +479,30 @@ async function scenario({ ws, send, logs, requests }) {
     await msg({ type: "botSim" });
     await sleep(1500);
     const sim = await top("window.acks.at(-1)");
-    ok("from every duel spawn spot the bot engages within 12 s (no stuck bot)", sim?.n > 10 && sim.bad.length === 0, `spots=${sim?.n} stuck=${sim?.bad?.join(" ")}`);
-    ok("duel bot shoots back (shots fired at the player)", s.botShots >= 1, `botShots=${s.botShots} lastHurt=${s.lastHurt} deaths=${s.stats.deaths} health=${s.health}`);
-    const fpsDuel = await fpsOver(3000);
+    ok("from every spawn spot a cover bot engages within 12 s (no stuck bot)", sim?.n > 10 && sim.bad.length === 0, `spots=${sim?.n} stuck=${sim?.bad?.join(" ")}`);
+    // Busy with the allies near A, hostiles may not fire at the player there: go to their zone C to draw fire.
+    await msg({ type: "teleport", zone: 2 });
+    s = await waitFor(x => x.botShots >= 1, 15000);
+    ok("hostiles shoot at the player (in zone C)", s.botShots >= 1, `botShots=${s.botShots} lastHurt=${s.lastHurt} deaths=${s.stats.deaths} health=${s.health}`);
+    const fpsDom = await fpsOver(3000);
 
-    // Survival: waves of several bots.
+    // Zombies: rounds of melee undead that run at the player.
     await key("KeyM");
     await waitFor(x => x.state === "menu");
     await key("Digit3");
-    s = await waitFor(x => x.mode === "survival" && x.wave === 1 && x.bots >= 2, 9000);
-    ok("Survival wave 1 spawns several bots", s.wave === 1 && s.bots >= 2, `wave=${s.wave} bots=${s.bots}`);
-    await sleep(4000);
-    await shot("08-survival");
-    const fpsSurvival = await fpsOver(3000);
-    ok("fps >= 30 with bots (duel / survival)", fpsDuel >= 30 && fpsSurvival >= 30, `duel ${fpsDuel} / survival ${fpsSurvival}`);
+    s = await waitFor(x => x.mode === "zombies" && x.wave === 1 && x.bots >= 3, 9000);
+    ok("Zombies round 1 spawns several zombies", s.wave === 1 && s.bots >= 3, `round=${s.wave} zombies=${s.bots} hp=${s.zombieHp}`);
+    s = await waitFor(x => x.health < 100 || !x.alive || x.state === "summary", 30000);
+    await shot("08-zombies");
+    ok("zombies run to the player and claw", s.health < 100 || !s.alive || s.state === "summary", `health=${s.health} alive=${s.alive} state=${s.state}`);
+    const fpsZombies = s.state === "play" ? await fpsOver(3000) : 60;
+    ok("fps >= 30 with bots (domination / zombies)", fpsDom >= 30 && fpsZombies >= 30, `domination ${fpsDom} / zombies ${fpsZombies}`);
 
     // Summary keyboard: Enter redeploys.
     await msg({ type: "finish" });
     await waitFor(x => x.state === "summary", 3000);
     await key("Enter");
-    s = await waitFor(x => x.state === "play" && x.mode === "survival");
+    s = await waitFor(x => x.state === "play" && x.mode === "zombies");
     ok("Enter on the summary redeploys", s.state === "play");
 
     // Esc pauses and resumes; P does the same; the pause panel has a working menu button.

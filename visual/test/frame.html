@@ -86,11 +86,12 @@
         game.yaw += off;
         return true;
     }
-    // Duel spawns: from every candidate cover spot, the bot must engage within 12 simulated seconds (no stuck bot):
+    // Spawns 16-32 m away: from every candidate cover spot, the bot must engage within 12 simulated seconds (no stuck bot):
     // peek from cover, or, on small maps with no valid cover, walk into the player's line of sight.
     function botSim() {
-        const g = game, b = g.bots[0], w = g.world, eye = g.vA.set(g.pos.x, g.pos.y + 1.65, g.pos.z), was = g.paused;
+        const g = game, b = g.bots[0], w = g.world, eye = g.vA.set(g.pos.x, g.pos.y + 1.65, g.pos.z), was = g.paused, mode = g.mode;
         g.paused = true;
+        g.mode = "range"; // outside Domination every bot targets the player: this simulation checks the cover AI against the player
         const mid = w.cover.filter(c => { const d = Math.hypot(c.x - g.pos.x, c.z - g.pos.z); return d > 16 && d < 32 && !w.los({ x: c.x, y: 1.6, z: c.z }, eye); });
         const bad = [];
         for (const c of mid) {
@@ -100,6 +101,7 @@
             for (let k = 0; k < 240 && !peeked; k++) { g.botCtx.now += 0.05; b.update(0.05, g.botCtx); peeked = b.state === "peek" || b.visible; }
             if (!peeked) bad.push(`${c.x.toFixed(1)},${c.z.toFixed(1)}`);
         }
+        g.mode = mode;
         g.paused = was;
         return { n: mid.length, bad };
     }
@@ -112,7 +114,7 @@
         const dMin = 12 * w.bound / 32 - 0.01, bad = [];
         const spots = w.cover.filter((_, i) => i % 6 === 0);
         let n = 0;
-        for (const mode of ["duel", "survival"]) {
+        for (const mode of ["dom", "zombies"]) {
             g.mode = mode;
             spots.forEach((c, i) => {
                 g.pos.set(c.x, 0, c.z);
@@ -123,7 +125,7 @@
                 if (seen(b.pos.x, b.pos.z, { x: c.x, y: 1.65, z: c.z }) || d < dMin) bad.push(`${mode} player ${c.x.toFixed(1)},${c.z.toFixed(1)} bot ${b.pos.x.toFixed(1)},${b.pos.z.toFixed(1)} d=${d.toFixed(1)}`);
             });
         }
-        g.mode = "duel";
+        g.mode = "dom";
         spots.forEach(c => {
             b.spawn({ x: c.x, y: 0, z: c.z }, 0);
             g.respawn();
@@ -169,6 +171,7 @@
         if (m.type === "click") { const b = document.querySelectorAll(m.sel)[m.i || 0]; if (b) b.click(); post({ type: "ack", ok: !!b }); }
         if (m.type === "type") { const t = document.querySelector(m.sel); if (t) { t.value = m.value; t.dispatchEvent(new Event("change")); } post({ type: "ack", ok: !!t }); }
         if (m.type === "spawnCheck") post({ type: "ack", ok: spawnCheck() });
+        if (m.type === "teleport") { const z = game.zones[m.zone]; if (z) game.pos.set(z.x, 0, z.z); post({ type: "ack", ok: !!z }); }
         if (m.type === "botSim") post({ type: "ack", ok: botSim() });
         if (m.type === "audioCheck") post({ type: "ack", ok: audioCheck() });
         if (m.type === "crouchHead") post({ type: "ack", ok: headMatches() });

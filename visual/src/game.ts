@@ -1,5 +1,6 @@
 import {
-    ACESFilmicToneMapping, Fog, Mesh, PCFShadowMap, PerspectiveCamera, PointLight, Scene, Vector3, WebGLRenderer
+    ACESFilmicToneMapping, CylinderGeometry, DoubleSide, Fog, Group, Mesh, MeshBasicMaterial, PCFShadowMap, PerspectiveCamera, PointLight,
+    RingGeometry, Scene, Vector3, WebGLRenderer
 } from "three";
 import { Sfx } from "./audio";
 import { Bot, BotContext, Target } from "./bots";
@@ -10,7 +11,7 @@ import { buildWeapon, DEFAULT_ROSTER, hitDamage, kindOf, rangeMultiplier, rng, W
 import { ViewModel } from "./viewmodel";
 import { Box, CoverPoint, HALF, MapId, MAPS, rayBox, Vec, World } from "./world";
 
-export type Mode = "range" | "duel" | "survival";
+export type Mode = "range" | "dom" | "zombies";
 export type Difficulty = "easy" | "normal" | "hard" | "veteran";
 
 export interface Settings {
@@ -89,7 +90,15 @@ const SPEED = { walk: 4.6, sprint: 6.6, crouch: 2.3, ads: 2.8 };
 const GRAVITY = 20, JUMP = 6.4, REGEN_DELAY = 4.5, REGEN_RATE = 28;
 const JOY_DEADZONE = 0.12;
 const SLIDE_TIME = 0.8, SLIDE_BOOST = 1.32, SLIDE_FRICTION = 5.5;
-const RANGE_TIME = 60, DUEL_TIME = 180, DUEL_SCORE = 5, RECORD_MIN_SHOTS = 15;
+const RANGE_TIME = 60, RECORD_MIN_SHOTS = 15;
+// Domination: 3 hostiles, zones of 3 m radius, 4 s to capture, 1 point per held zone per second.
+const DOM_TIME = 240, DOM_SCORE = 150, DOM_BOTS = 3, DOM_ALLIES = 2, ZONE_R = 3, CAP_TIME = 4;
+const ALLY_NAMES = ["VIPER", "ECHO", "NOMAD", "FALCON"];
+/** Zone colors by owner + 1: hostiles, neutral, player. */
+const ZONE_COLORS = [0xe2483a, 0xd6cea9, 0x4aa3ff];
+// Zombies: claw damage on 100 HP (easy 5 hits, normal 4, hard 3, veteran 2) and run speed factor.
+const ZOMBIE_DAMAGE: Record<Difficulty, number> = { easy: 20, normal: 25, hard: 34, veteran: 50 };
+const ZOMBIE_PACE: Record<Difficulty, number> = { easy: 0.9, normal: 1, hard: 1.08, veteran: 1.15 };
 const BOT_NAMES = ["ANVIL", "RIFT", "OSPREY", "GHOUL", "MANTIS", "COBALT", "SABLE", "TALUS", "WRAITH", "BRAMBLE", "CINDER", "DUSK"];
 const BOT_WEAPON = "VX-3 Rifle";
 // skill drives aim error and reaction time; damage per hit on 100 HP (easy 9 hits, normal 6, hard 5, veteran 4);
@@ -98,7 +107,7 @@ const SKILL: Record<Difficulty, number> = { easy: 0.2, normal: 0.5, hard: 0.75, 
 const BOT_DAMAGE: Record<Difficulty, number> = { easy: 12, normal: 18, hard: 24, veteran: 30 };
 const RUSH: Record<Difficulty, number> = { easy: 0.05, normal: 0.15, hard: 0.3, veteran: 0.45 };
 const DIFFS: Difficulty[] = ["easy", "normal", "hard", "veteran"];
-const MODE_KEYS: Record<string, Mode> = { "1": "range", "2": "duel", "3": "survival" };
+const MODE_KEYS: Record<string, Mode> = { "1": "range", "2": "dom", "3": "zombies" };
 const DUST: [number, number, number] = [0.6, 0.56, 0.45];
 const BLOOD: [number, number, number] = [0.42, 0.1, 0.07];
 const SPARK: [number, number, number] = [1, 0.72, 0.38];
@@ -186,12 +195,16 @@ export class Game {
     private bots: Bot[] = [];
     private targets: Target[] = [];
     private claimed = new Set<CoverPoint>();
-    private duel = { you: 0, them: 0 };
+    private dom = { you: 0, them: 0, tick: 0, caps: 0 };
+    /** Domination zones: owner -1 hostiles, 0 neutral, 1 player; prog -1..1 is the capture progress. */
+    private zones: { name: string; x: number; z: number; owner: number; prog: number; group: Group; mat: MeshBasicMaterial }[] = [];
     /** front = bearing (radians, from the player) most of the wave comes from. */
     private wave = { n: 0, queue: 0, breakT: 0, spawnT: 0, cap: 0, front: 0 };
     private spotCache: { world: World; list: Vec[] } | null = null;
     private nameIdx = 0;
     private botShots = 0;
+    /** Shots fired by allied bots (Domination), for tests and diagnostics. */
+    private allyShots = 0;
     private botCtx: BotContext;
 
     private last = 0;
@@ -228,6 +241,8 @@ export class Game {
         this.botCtx = {
             world: this.world, r: this.r, now: 0, eye: new Vector3(), feet: this.pos, playerAlive: true, skill: 0.5, rush: 0.15,
             claimed: this.claimed, others: this.bots, shoot: (b, eye, muzzle, e) => this.botShoot(b, eye, muzzle, e),
+            melee: b => this.hurtPlayer(ZOMBIE_DAMAGE[this.settings.difficulty], b), zombieSpeed: 2.4,
+            pickTarget: b => this.pickTarget(b),
         };
         window.addEventListener("blur", this.onBlur);
 
@@ -316,7 +331,10 @@ export class Game {
             pos: [this.pos.x, this.pos.y, this.pos.z].map(v => +v.toFixed(2)), yaw: +this.yaw.toFixed(3), pitch: +this.pitch.toFixed(3),
             health: Math.round(this.health), lastHurt: +this.lastHurt.toFixed(2), alive: this.alive, weapon: s.w.name, mag: s.mag, reserve: s.reserve, reloading: this.reloadT >= 0,
             ads: +this.ads.toFixed(2), sliding: this.slideT > 0, speed: +Math.hypot(this.hv.x, this.hv.z).toFixed(2), crouch: +this.crouch.toFixed(2), slots: this.slots.map(x => x.w.name), fromData: this.fromData, stats: { ...this.stats },
-            bots: this.bots.filter(b => b.alive).length, botShots: this.botShots, botStates: this.bots.map(b => b.state), wave: this.wave.n, duel: { ...this.duel },
+            bots: this.bots.filter(b => b.alive).length, botShots: this.botShots, botStates: this.bots.map(b => b.state), wave: this.wave.n, dom: { ...this.dom },
+            zones: this.zones.map(z => ({ name: z.name, owner: z.owner, prog: +z.prog.toFixed(2), x: z.x, z: z.z })),
+            zombieHp: this.bots.filter(b => b.zombie && b.alive).map(b => b.health),
+            allies: this.bots.filter(b => b.alive && b.team === 1).length, allyShots: this.allyShots,
             roundTime: +this.roundTime.toFixed(1), fps: Math.round(this.fps), audio: this.sfx.state, records: { ...this.records },
             loadouts: this.loadouts, editing: this.editing, perk: this.perk(),
         };
@@ -336,8 +354,8 @@ export class Game {
             classes, onClass: i => this.pickClass(i), onEdit: L.active >= 0 ? () => { this.editing = L.active; this.renderMenu(); } : null,
         }, [
             { key: "1", title: "AIM RANGE", desc: `${RANGE_TIME} SECONDS OF STATIC AND MOVING STEEL. EVERY MISS COUNTS.`, best: `BEST ${R.rangeKills} TARGETS` },
-            { key: "2", title: "BOT DUEL", desc: `FIRST TO ${DUEL_SCORE}. THE BOT PEEKS, SHOOTS BACK AND TAKES COVER.`, best: `BEST ${R.duelKills} KILLS` },
-            { key: "3", title: "SURVIVAL", desc: "ENDLESS WAVES OF HELMETED HOSTILES. HEALTH REGENERATES.", best: `BEST WAVE ${R.survivalWave}` },
+            { key: "2", title: "DOMINATION", desc: `YOU AND ${DOM_ALLIES} ALLIES AGAINST ${DOM_BOTS} HOSTILES. CAPTURE AND HOLD A, B AND C. FIRST TO ${DOM_SCORE}.`, best: `BEST ${R.duelKills} KILLS` },
+            { key: "3", title: "ZOMBIES", desc: "ROUND AFTER ROUND OF UNDEAD. THEY GET FASTER AND TOUGHER. NO RESPAWN.", best: `BEST ROUND ${R.survivalWave}` },
         ], `LOADOUT: ${n} WEAPON${n > 1 ? "S" : ""}  ·  ${this.fromData ? "FROM THE WEAPONS TABLE (CLASS SLICER APPLIES)" : "DEFAULT ROSTER (NO DATA BOUND)"}`,
         `BEST ACCURACY ${R.accuracy.toFixed(0)}%  ·  BEST SPRAY SCORE ${R.spray.toFixed(0)}  ·  BEST TTK ${R.bestTtk ? R.bestTtk + " MS" : "—"}`,
         key => this.start(MODE_KEYS[key]),
@@ -456,18 +474,21 @@ export class Game {
             this.world.rangeSpots.forEach((s, i) => this.addTarget(new Target(s, null, `T-${String(i + 1).padStart(2, "0")}`)));
             this.world.rangeRails.forEach((rail, i) => this.addTarget(new Target(rail[0], rail, `M-${i + 1}`)));
             this.hud.showBanner("AIM RANGE  ·  HIT THE STEEL");
-        } else if (mode === "duel") {
-            this.roundTime = DUEL_TIME;
-            this.duel = { you: 0, them: 0 };
-            const b = this.addBot();
-            b.alive = false;
-            b.group.visible = false;
-            b.respawnAt = 1.5;
-            this.hud.showBanner(`BOT DUEL  ·  FIRST TO ${DUEL_SCORE}`);
+        } else if (mode === "dom") {
+            this.roundTime = DOM_TIME;
+            this.dom = { you: 0, them: 0, tick: 0, caps: 0 };
+            this.buildZones();
+            for (let i = 0; i < DOM_BOTS + DOM_ALLIES; i++) {
+                const b = this.addBot(false, i < DOM_BOTS ? -1 : 1);
+                b.alive = false;
+                b.group.visible = false;
+                b.respawnAt = i < DOM_BOTS ? 1 + i * 0.5 : 0.3 + (i - DOM_BOTS) * 0.3;
+            }
+            this.hud.showBanner(`DOMINATION  ·  FIRST TO ${DOM_SCORE}`);
         } else {
             this.roundTime = 0;
             this.wave = { n: 0, queue: 0, breakT: 3, spawnT: 0, cap: 0, front: this.r() * Math.PI * 2 };
-            this.hud.showBanner("SURVIVAL  ·  HOLD THE LINE");
+            this.hud.showBanner("ZOMBIES  ·  SURVIVE THE ROUNDS");
         }
         this.hooks.equip(this.slot().w.name);
     }
@@ -488,8 +509,8 @@ export class Game {
         let kBest = false, aBest = false, sBest = false, tBest = false;
         if (s.ttkN >= 3 && (R.bestTtk === 0 || s.ttkBest < R.bestTtk)) { R.bestTtk = s.ttkBest; tBest = true; }
         if (this.mode === "range" && s.kills > R.rangeKills) { R.rangeKills = s.kills; kBest = true; }
-        if (this.mode === "duel" && s.kills > R.duelKills) { R.duelKills = s.kills; kBest = true; }
-        if (this.mode === "survival" && this.wave.n > R.survivalWave) { R.survivalWave = this.wave.n; kBest = true; }
+        if (this.mode === "dom" && s.kills > R.duelKills) { R.duelKills = s.kills; kBest = true; }
+        if (this.mode === "zombies" && this.wave.n > R.survivalWave) { R.survivalWave = this.wave.n; kBest = true; }
         if (s.shots >= RECORD_MIN_SHOTS && acc > R.accuracy) { R.accuracy = Math.round(acc * 10) / 10; aBest = true; }
         if (s.sprayShots >= RECORD_MIN_SHOTS && spray > R.spray) { R.spray = Math.round(spray * 10) / 10; sBest = true; }
         if (kBest || aBest || sBest || tBest) {
@@ -505,10 +526,10 @@ export class Game {
         ];
         const tiles: Tile[] = this.mode === "range"
             ? [{ label: "TARGETS", value: String(s.kills), best: kBest }, ...common, { label: "MISSED", value: String(s.missed) }]
-            : this.mode === "duel"
-                ? [{ label: "SCORE", value: `${this.duel.you} – ${this.duel.them}` }, { label: "KILLS", value: String(s.kills), best: kBest },
-                    { label: "DEATHS", value: String(s.deaths) }, ...common]
-                : [{ label: "WAVE", value: String(this.wave.n), best: kBest }, { label: "KILLS", value: String(s.kills) },
+            : this.mode === "dom"
+                ? [{ label: "SCORE", value: `${this.dom.you} – ${this.dom.them}` }, { label: "KILLS", value: String(s.kills), best: kBest },
+                    { label: "DEATHS", value: String(s.deaths) }, { label: "CAPTURES", value: String(this.dom.caps) }, ...common]
+                : [{ label: "ROUND", value: String(this.wave.n), best: kBest }, { label: "KILLS", value: String(s.kills) },
                     { label: "TIME", value: fmtTime(this.roundTime) }, ...common];
         this.hud.summary(this.endTitle, this.endSub, tiles, () => this.start(this.mode), () => this.toMenu());
     }
@@ -531,6 +552,29 @@ export class Game {
         this.targets.length = 0;
         this.claimed.clear();
         this.fx.clear();
+        for (const z of this.zones) {
+            this.scene.remove(z.group);
+            z.group.traverse(o => (o as Mesh).geometry?.dispose());
+            z.mat.dispose();
+        }
+        this.zones = [];
+    }
+
+    /** Domination: a colored ring on the ground and a thin beacon per zone. */
+    private buildZones(): void {
+        this.world.zoneSpots().forEach((p, i) => {
+            const mat = new MeshBasicMaterial({ color: ZONE_COLORS[1], transparent: true, opacity: 0.8, side: DoubleSide, depthWrite: false });
+            const ring = new Mesh(new RingGeometry(ZONE_R - 0.22, ZONE_R, 48), mat);
+            ring.rotation.x = -Math.PI / 2;
+            ring.position.y = 0.04;
+            const beacon = new Mesh(new CylinderGeometry(0.05, 0.05, 7, 6), mat);
+            beacon.position.y = 3.5;
+            const group = new Group();
+            group.add(ring, beacon);
+            group.position.set(p.x, 0, p.z);
+            this.scene.add(group);
+            this.zones.push({ name: "ABC"[i], x: p.x, z: p.z, owner: 0, prog: 0, group, mat });
+        });
     }
 
     private addTarget(t: Target): void {
@@ -538,8 +582,9 @@ export class Game {
         this.scene.add(t.group);
     }
 
-    private addBot(): Bot {
-        const b = new Bot(BOT_NAMES[this.nameIdx++ % BOT_NAMES.length]);
+    private addBot(zombie = false, team = -1): Bot {
+        const name = zombie ? "ZOMBIE" : team === 1 ? ALLY_NAMES[this.bots.filter(o => o.team === 1).length % ALLY_NAMES.length] : BOT_NAMES[this.nameIdx++ % BOT_NAMES.length];
+        const b = new Bot(name, zombie, team);
         this.bots.push(b);
         this.scene.add(b.group);
         return b;
@@ -560,12 +605,15 @@ export class Game {
 
     /**
      * Bot spawn: hidden from the player (head and chest), at least 12 m away (scaled to the map), 3 m from other bots,
-     * close to an ideal distance so fights start fast, never close behind the player, and in Survival mostly from
-     * the wave's front (it changes every wave). Falls back to the farthest fixed spawn when nothing qualifies.
+     * close to an ideal distance so fights start fast, never close behind the player. Zombies come mostly from the
+     * round's front (it changes every round); Domination hostiles spawn on the zone C side.
+     * Falls back to the farthest fixed spawn when nothing qualifies.
      */
     private spawnBot(b: Bot): void {
+        if (b.team === 1) return this.spawnAlly(b);
         const eye = this.vA.set(this.pos.x, this.pos.y + EYE, this.pos.z);
-        const k = this.world.bound / HALF, ideal = (this.mode === "duel" ? 18 : 24) * k, dMin = 12 * k;
+        const k = this.world.bound / HALF, ideal = (this.mode === "dom" ? 20 : 24) * k, dMin = 12 * k;
+        const home = this.mode === "dom" ? this.zones[2] : null;
         const fx = -Math.sin(this.yaw), fz = -Math.cos(this.yaw);
         let best: Vec | null = null, bestScore = -Infinity;
         for (const s of this.spawnSpots()) {
@@ -574,7 +622,14 @@ export class Game {
             if (this.bots.some(o => o !== b && o.alive && Math.hypot(o.pos.x - s.x, o.pos.z - s.z) < 3)) continue;
             let score = -Math.abs(d - ideal) + this.r() * 6;
             if ((dx * fx + dz * fz) / d < -0.5 && d < ideal) score -= 12;
-            if (this.mode === "survival") score += Math.cos(Math.atan2(dx, dz) - this.wave.front) * 8;
+            if (this.mode === "zombies") score += Math.cos(Math.atan2(dx, dz) - this.wave.front) * 8;
+            if (home) {
+                // Domination: hostiles only spawn on their half (closer to C than to A), as near C as possible, unseen by allies.
+                const dc = Math.hypot(s.x - home.x, s.z - home.z);
+                if (dc > Math.hypot(s.x - this.zones[0].x, s.z - this.zones[0].z)) continue;
+                if (this.bots.some(o => o.alive && o.team === 1 && this.seenFrom(s.x, s.z, o.head))) continue;
+                score = -dc + this.r() * 6;
+            }
             if (score > bestScore) { bestScore = score; best = s; }
         }
         if (!best) {
@@ -638,8 +693,8 @@ export class Game {
         c.playerAlive = this.alive;
         for (const b of this.bots) b.update(dt, c);
         if (this.mode === "range") this.updateRange(dt);
-        else if (this.mode === "duel") this.updateDuel();
-        else this.updateSurvival(dt);
+        else if (this.mode === "dom") this.updateDom(dt);
+        else this.updateZombies(dt);
         if (this.endAt >= 0 && this.time >= this.endAt) {
             this.endRound();
             return;
@@ -860,14 +915,17 @@ export class Game {
         }
     }
 
-    /** Player respawn: out of every live bot's sight, about 24 m (scaled to the map) from the nearest one; else the farthest fixed spawn. */
+    /** Player respawn: out of every live hostile's sight, about 24 m (scaled to the map) from the nearest one; else the farthest fixed spawn. */
     private respawn(): void {
-        const live = this.bots.filter(x => x.alive), k = this.world.bound / HALF;
+        const live = this.bots.filter(x => x.alive && x.team === -1), k = this.world.bound / HALF;
         const near = (s: Vec) => live.reduce((m, o) => Math.min(m, Math.hypot(s.x - o.pos.x, s.z - o.pos.z)), Infinity);
         let best: Vec | null = null, bestScore = -Infinity;
         for (const s of this.spawnSpots()) {
             const d = near(s);
             if (d < 14 * k || live.some(o => this.seenFrom(s.x, s.z, { x: o.pos.x, y: 1.55, z: o.pos.z }))) continue;
+            // Domination: the player respawns on the A half.
+            const [za, , zc] = this.zones;
+            if (zc && Math.hypot(s.x - za.x, s.z - za.z) > Math.hypot(s.x - zc.x, s.z - zc.z)) continue;
             const score = (live.length ? -Math.abs(d - 24 * k) : 0) + this.r() * 6;
             if (score > bestScore) { bestScore = score; best = s; }
         }
@@ -898,13 +956,11 @@ export class Game {
         this.reloadT = -1;
         this.stats.deaths++;
         bot.kills++;
-        this.hud.feed(this.time, bot.name, BOT_WEAPON, "YOU", false, false);
-        if (this.mode === "duel") {
-            this.duel.them++;
-            if (this.duel.them >= DUEL_SCORE) this.finishLater("DEFEAT", `${bot.name} TOOK THE DUEL ${this.duel.them} – ${this.duel.you}`, 1.8);
-            else this.respawnAt = this.time + 2.5;
-        } else if (this.mode === "survival") {
-            this.finishLater("KILLED IN ACTION", `YOU HELD UNTIL WAVE ${this.wave.n}`, 1.8);
+        this.hud.feed(this.time, bot.name, bot.zombie ? "CLAWS" : BOT_WEAPON, "YOU", false, false);
+        if (this.mode === "dom") this.respawnAt = this.time + 2.5;
+        else if (this.mode === "zombies") {
+            const n = Math.max(0, this.wave.n - 1);
+            this.finishLater("OVERRUN", `YOU SURVIVED ${n} ROUND${n === 1 ? "" : "S"}`, 1.8);
         }
     }
 
@@ -1014,7 +1070,7 @@ export class Game {
         tr.zone = null;
         if (wh) { tr.nx = wh.nx; tr.ny = wh.ny; tr.nz = wh.nz; }
         for (const b of this.bots) {
-            if (!b.alive) continue;
+            if (!b.alive || b.team === 1) continue; // no friendly fire on allies
             for (const h of b.hitboxes()) {
                 const t = rayBox(o.x, o.y, o.z, d.x, d.y, d.z, h.box);
                 if (t < tr.t) { tr.t = t; tr.bot = b; tr.target = null; tr.zone = h.zone; tr.world = false; }
@@ -1094,11 +1150,7 @@ export class Game {
         this.stats.kills++;
         this.hud.feed(this.time, "YOU", w.name, bot.name, head, true, `TTK ${this.recordTtk(this.time - bot.firstHit)}`);
         this.sfx.kill();
-        if (this.mode === "duel") {
-            this.duel.you++;
-            if (this.duel.you >= DUEL_SCORE) this.finishLater("VICTORY", `YOU WON THE DUEL ${this.duel.you} – ${this.duel.them}`, 1.2);
-            else bot.respawnAt = this.time + 2.2;
-        }
+        if (this.mode === "dom") bot.respawnAt = this.time + 3;
     }
 
     /** Records a time-to-kill in seconds and returns it formatted. A one-shot kill is 0 ms. */
@@ -1110,7 +1162,65 @@ export class Game {
         return `${ms} MS`;
     }
 
+    /** Domination: nearest enemy in sight (nearest at all when none is), player included for hostiles. Other modes: the player. */
+    private pickTarget(b: Bot): Bot | null | undefined {
+        if (this.mode !== "dom") return null;
+        let best: Bot | null | undefined, bestD = Infinity, bestSeen = false;
+        const consider = (o: Bot | null, x: number, z: number, eye: Vec) => {
+            const d = Math.hypot(x - b.pos.x, z - b.pos.z), seen = this.world.los(b.head, eye);
+            if ((seen && !bestSeen) || (seen === bestSeen && d < bestD)) {
+                best = o;
+                bestD = d;
+                bestSeen = seen;
+            }
+        };
+        if (b.team === -1 && this.alive) consider(null, this.pos.x, this.pos.z, this.botCtx.eye);
+        for (const o of this.bots) if (o.alive && o.team !== b.team) consider(o, o.pos.x, o.pos.z, o.head);
+        return best;
+    }
+
+    /** Domination: a bot fires at a bot of the other team, with the same aim error and damage as against the player. */
+    private botShootBot(bot: Bot, t: Bot, from: Vector3, muzzle: Vector3, errorMult: number): void {
+        if (bot.team === 1) this.allyShots++;
+        const base = this.vB.subVectors(this.vA.set(t.pos.x, t.head.y - 0.45, t.pos.z), from).normalize();
+        const dir = this.cone(base, (4.6 - 4.1 * this.botCtx.skill) * errorMult, this.vC, false);
+        const wh = this.world.raycast(from, dir, 150), wt = wh ? wh.t : 150;
+        let ht = Infinity, zone: Zone = "torso";
+        for (const h of t.hitboxes()) {
+            const d = rayBox(from.x, from.y, from.z, dir.x, dir.y, dir.z, h.box);
+            if (d < ht) { ht = d; zone = h.zone; }
+        }
+        const end = this.vD.copy(from).addScaledVector(dir, Math.min(ht, wt));
+        this.fx.tracer(muzzle, end, bot.team === 1 ? [0.45, 0.7, 1] : [0.85, 0.45, 0.2]);
+        const dx = from.x - this.pos.x, dz = from.z - this.pos.z, d = Math.hypot(dx, dz) || 1;
+        this.sfx.shot("bot", d, (dx * Math.cos(this.yaw) - dz * Math.sin(this.yaw)) / d);
+        if (ht < wt) {
+            const dmg = BOT_DAMAGE[this.settings.difficulty] * (zone === "head" ? 1.4 : zone === "legs" ? 0.75 : 1);
+            if (t.damage(dmg, this.time, this.claimed)) {
+                bot.kills++;
+                t.respawnAt = this.time + 3;
+                this.hud.feed(this.time, bot.name, BOT_WEAPON, t.name, zone === "head", false);
+            }
+        } else if (wh) this.fx.impact(end, wh.nx, wh.ny, wh.nz, DUST, 4, true);
+    }
+
+    /** Domination ally: on the A half, as near A as possible, out of every hostile's sight, 3 m from other bots. */
+    private spawnAlly(b: Bot): void {
+        const [za, , zc] = this.zones, foes = this.bots.filter(o => o.alive && o.team === -1);
+        let best: Vec | null = null, bestScore = -Infinity;
+        for (const s of this.spawnSpots()) {
+            const da = Math.hypot(s.x - za.x, s.z - za.z);
+            if (da > Math.hypot(s.x - zc.x, s.z - zc.z) || foes.some(o => this.seenFrom(s.x, s.z, o.head))) continue;
+            if (this.bots.some(o => o !== b && o.alive && Math.hypot(o.pos.x - s.x, o.pos.z - s.z) < 3)) continue;
+            const score = -da + this.r() * 8;
+            if (score > bestScore) { bestScore = score; best = s; }
+        }
+        best ??= this.world.playerSpawns[0];
+        b.spawn(best, Math.atan2(best.x - zc.x, best.z - zc.z));
+    }
+
     private botShoot(bot: Bot, from: Vector3, muzzle: Vector3, errorMult: number): void {
+        if (bot.tBot) return this.botShootBot(bot, bot.tBot, from, muzzle, errorMult);
         this.botShots++;
         const eyeH = lerp(EYE, CROUCH_EYE, this.crouch);
         const aim = this.vA.set(this.pos.x, this.pos.y + eyeH - 0.45, this.pos.z);
@@ -1127,10 +1237,8 @@ export class Game {
         this.fx.tracer(muzzle, end, [0.85, 0.45, 0.2]);
         const dx = from.x - this.pos.x, dz = from.z - this.pos.z, d = Math.hypot(dx, dz) || 1;
         this.sfx.shot("bot", d, (dx * Math.cos(this.yaw) - dz * Math.sin(this.yaw)) / d);
-        if (pt < wt) {
-            const scale = this.mode === "survival" ? 1 + 0.05 * Math.max(0, this.wave.n - 1) : 1;
-            this.hurtPlayer(BOT_DAMAGE[this.settings.difficulty] * scale, bot);
-        } else if (wh) this.fx.impact(end, wh.nx, wh.ny, wh.nz, DUST, 4, true);
+        if (pt < wt) this.hurtPlayer(BOT_DAMAGE[this.settings.difficulty], bot);
+        else if (wh) this.fx.impact(end, wh.nx, wh.ny, wh.nz, DUST, 4, true);
     }
 
     // ---------- modes ----------
@@ -1157,17 +1265,61 @@ export class Game {
         }
     }
 
-    private updateDuel(): void {
-        const b = this.bots[0];
-        if (b && !b.alive && b.respawnAt >= 0 && this.time >= b.respawnAt && this.endAt < 0) this.spawnBot(b);
-        if (DUEL_TIME - this.time <= 0 && this.endAt < 0) {
-            const { you, them } = this.duel;
-            this.finishLater(you > them ? "VICTORY" : you < them ? "DEFEAT" : "DRAW", `TIME  ·  ${you} – ${them}`, 0);
+    private updateDom(dt: number): void {
+        const D = this.dom;
+        for (const b of this.bots) {
+            if (!b.alive && b.respawnAt >= 0 && this.time >= b.respawnAt && this.endAt < 0) {
+                b.respawnAt = -1;
+                this.spawnBot(b);
+            }
         }
-        this.roundTime = Math.max(0, DUEL_TIME - this.time);
+        // Capture: only one side inside moves the progress (4 s from neutral); an owned zone is neutralized first.
+        for (const z of this.zones) {
+            const inZone = (team: number) => this.bots.some(b => b.alive && b.team === team && Math.hypot(b.pos.x - z.x, b.pos.z - z.z) < ZONE_R);
+            const p = (this.alive && Math.hypot(this.pos.x - z.x, this.pos.z - z.z) < ZONE_R) || inZone(1) ? 1 : 0;
+            const e = inZone(-1) ? 1 : 0;
+            if (p !== e) z.prog = Math.max(-1, Math.min(1, z.prog + (p - e) * dt / CAP_TIME));
+            const owner = z.prog >= 1 ? 1 : z.prog <= -1 ? -1 : z.owner !== 0 && Math.sign(z.prog) !== z.owner ? 0 : z.owner;
+            if (owner === z.owner) continue;
+            z.owner = owner;
+            z.mat.color.setHex(ZONE_COLORS[owner + 1]);
+            if (owner === 1) D.caps++;
+            this.hud.showBanner(`ZONE ${z.name} ${owner === 1 ? "CAPTURED" : owner === -1 ? "LOST" : "NEUTRALIZED"}`);
+        }
+        // One point per held zone per second; objectives are refreshed at the same pace.
+        D.tick += dt;
+        const second = D.tick >= 1;
+        while (D.tick >= 1) {
+            D.tick -= 1;
+            for (const z of this.zones) {
+                if (z.owner === 1) D.you++;
+                else if (z.owner === -1) D.them++;
+            }
+        }
+        for (const b of this.bots) if (b.alive && (second || !b.objective)) b.objective = this.objectiveFor(b);
+        if (this.endAt < 0 && (D.you >= DOM_SCORE || D.them >= DOM_SCORE || DOM_TIME - this.time <= 0)) {
+            this.finishLater(D.you > D.them ? "VICTORY" : D.you < D.them ? "DEFEAT" : "DRAW", `DOMINATION  ·  ${D.you} – ${D.them}`, 0.8);
+        }
+        this.roundTime = Math.max(0, DOM_TIME - this.time);
     }
 
-    private updateSurvival(dt: number): void {
+    /**
+     * Zone choice by weighted distance: +15 m per teammate already heading there (spreads them), +20 m for the
+     * other team's home zone (A for hostiles, C for allies: the home side and B are secured first), +25 m for a zone
+     * the team already holds (so usually one bot stays to defend while the others attack).
+     */
+    private objectiveFor(b: Bot): { x: number; z: number } {
+        const enemyHome = b.team === -1 ? "A" : "C";
+        let best = this.zones[0], bestD = Infinity;
+        for (const z of this.zones) {
+            const others = this.bots.filter(o => o !== b && o.alive && o.team === b.team && o.objective?.x === z.x && o.objective?.z === z.z).length;
+            const d = Math.hypot(z.x - b.pos.x, z.z - b.pos.z) + others * 15 + (z.name === enemyHome ? 20 : 0) + (z.owner === b.team ? 25 : 0);
+            if (d < bestD) { bestD = d; best = z; }
+        }
+        return { x: best.x, z: best.z };
+    }
+
+    private updateZombies(dt: number): void {
         const W = this.wave;
         if (this.alive) this.roundTime += dt;
         for (let i = this.bots.length - 1; i >= 0; i--) {
@@ -1183,15 +1335,13 @@ export class Game {
             W.breakT -= dt;
             if (W.breakT <= 0) {
                 W.n++;
-                W.queue = 2 + W.n * 2;
-                W.cap = Math.min(8, 2 + W.n);
+                W.queue = 5 + W.n * 3;
+                W.cap = Math.min(16, 5 + W.n * 2);
                 W.spawnT = 0;
-                // The next wave comes from another side (90 to 270 degrees away).
+                // The next round comes from another side (90 to 270 degrees away), and runs faster.
                 if (W.n > 1) W.front += Math.PI * (0.5 + this.r());
-                // Each wave aims better and pushes harder.
-                this.botCtx.skill = Math.min(0.97, SKILL[this.settings.difficulty] + (W.n - 1) * 0.05);
-                this.botCtx.rush = Math.min(0.7, RUSH[this.settings.difficulty] + (W.n - 1) * 0.05);
-                this.hud.showBanner(`WAVE ${W.n}`);
+                this.botCtx.zombieSpeed = Math.min(5.6, 2.4 + 0.3 * (W.n - 1)) * ZOMBIE_PACE[this.settings.difficulty];
+                this.hud.showBanner(`ROUND ${W.n}`);
                 this.sfx.horn();
             }
             return;
@@ -1199,13 +1349,20 @@ export class Game {
         const alive = this.bots.filter(b => b.alive).length;
         W.spawnT -= dt;
         if (W.queue > 0 && alive < W.cap && W.spawnT <= 0) {
-            this.spawnBot(this.addBot());
+            const z = this.addBot(true);
+            this.spawnBot(z);
+            // Tougher every round; from round 4, about a third are sprinters.
+            z.health = Math.round(100 * (1 + 0.15 * (W.n - 1)));
+            z.speedMul = W.n >= 4 && this.r() < 0.3 ? 1.35 : 0.85 + this.r() * 0.3;
             W.queue--;
-            W.spawnT = 0.9;
+            W.spawnT = 0.6;
+        }
+        for (const b of this.bots) {
+            if (b.alive && this.r() < dt * 0.3) this.sfx.groan(Math.hypot(b.pos.x - this.pos.x, b.pos.z - this.pos.z));
         }
         if (W.queue === 0 && alive === 0) {
-            this.hud.showBanner(`WAVE ${W.n} CLEARED  ·  RESUPPLIED`);
-            W.breakT = 6;
+            this.hud.showBanner(`ROUND ${W.n} SURVIVED  ·  RESUPPLIED`);
+            W.breakT = 8;
             this.health = 100;
             for (const s of this.slots) s.reserve = Math.max(s.reserve, s.w.mag * 4);
         }
@@ -1253,13 +1410,13 @@ export class Game {
             s.ttkN ? `${Math.round(s.ttkSum / s.ttkN)} ms` : "—", this.mode === "range" ? "AVG REACT" : "AVG TTK");
         if (this.mode === "range") {
             h.timer("AIM RANGE", fmtTime(Math.max(0, this.roundTime)), `MISSED ${s.missed}`, this.roundTime < 10);
-        } else if (this.mode === "duel") {
-            const b = this.bots[0];
-            h.timer("BOT DUEL", fmtTime(this.roundTime), `YOU ${this.duel.you}  —  ${this.duel.them} ${b ? b.name : ""}`, this.roundTime < 15);
+        } else if (this.mode === "dom") {
+            h.timer("DOMINATION", fmtTime(this.roundTime), `YOUR TEAM ${this.dom.you}  —  ${this.dom.them} HOSTILES`, this.roundTime < 15);
         } else {
             const W = this.wave, left = W.queue + this.bots.filter(b => b.alive).length;
-            h.timer(`SURVIVAL  ·  WAVE ${W.n}`, fmtTime(this.roundTime), W.breakT > 0 ? `NEXT WAVE IN ${Math.ceil(W.breakT)}` : `${left} HOSTILES LEFT`, false);
+            h.timer(`ZOMBIES  ·  ROUND ${W.n}`, fmtTime(this.roundTime), W.breakT > 0 ? `NEXT ROUND IN ${Math.ceil(W.breakT)}` : `${left} ZOMBIES LEFT`, false);
         }
+        h.zones(this.zones.map(z => ({ name: z.name, owner: z.owner, prog: z.prog, here: this.alive && Math.hypot(this.pos.x - z.x, this.pos.z - z.z) < ZONE_R })));
         const spread = this.spreadDeg(w) * Math.PI / 180, half = this.camera.fov * Math.PI / 360;
         const showCross = this.alive && this.sprint < 0.5 && (this.ads < 0.6 || w.kind === "shotgun");
         h.crosshair(Math.tan(spread) / Math.tan(half) * this.height / 2, showCross);
@@ -1273,11 +1430,16 @@ export class Game {
         const pings: Ping[] = [];
         for (const b of this.bots) {
             if (!b.alive) continue;
+            if (b.team === 1) {
+                pings.push({ x: b.pos.x, z: b.pos.z, a: 0.9, color: "#4aa3ff" });
+                continue;
+            }
             const since = this.time - b.lastShot;
             const near = Math.hypot(b.pos.x - this.pos.x, b.pos.z - this.pos.z) < 7;
             if (since < 2 || near) pings.push({ x: b.pos.x, z: b.pos.z, a: near ? 0.8 : 1 - since / 2, color: "#e2483a" });
         }
         for (const t of this.targets) if (t.raised) pings.push({ x: t.pos.x, z: t.pos.z, a: 0.9, color: "#ff7a1a" });
+        for (const z of this.zones) pings.push({ x: z.x, z: z.z, a: 1, color: `#${ZONE_COLORS[z.owner + 1].toString(16).padStart(6, "0")}` });
         h.minimap(this.world.minimap, 4, HALF, this.pos.x, this.pos.z, this.yaw, pings);
     }
 
@@ -1288,7 +1450,7 @@ export class Game {
                 [{ cells: ["YOU", String(s.kills), String(s.missed), me.cells[3], me.cells[4]], me: true }]);
             return;
         }
-        const rows = [me, ...this.bots.slice(0, 8).map(b => ({ cells: [b.name, String(b.kills), String(b.deaths), b.alive ? b.state.toUpperCase() : "DOWN", ""], me: false }))];
+        const rows = [me, ...this.bots.slice(0, 8).map(b => ({ cells: [b.team === 1 ? `${b.name} (ALLY)` : b.name, String(b.kills), String(b.deaths), b.alive ? b.state.toUpperCase() : "DOWN", ""], me: false }))];
         this.hud.scoreboard(true, ["PLAYER", "KILLS", "DEATHS", "ACC / STATE", "HEADSHOT"], rows);
     }
 

@@ -1,29 +1,17 @@
 {
-  "version": "1.0.0.35",
-  "author": {
-    "name": "copbi-dops",
-    "email": "copbi-dops@example.com"
-  },
-  "resources": [
-    {
-      "resourceId": "rId0",
-      "sourceType": 5,
-      "file": "resources/copbidops62A8909F74E7A2707C2706542F4795A0.pbiviz.json"
-    }
-  ],
-  "visual": {
-    "name": "copbidops",
-    "displayName": "Call of Power BI: Data Ops",
-    "guid": "copbidops62A8909F74E7A2707C2706542F4795A0",
-    "visualClassName": "Visual",
-    "version": "1.0.0.35",
-    "description": "Procedural tactical first-person shooter rendered with three.js.",
-    "supportUrl": "https://example.com/copbi-dops",
-    "gitHubUrl": ""
-  },
-  "metadata": {
-    "pbivizjson": {
-      "resourceId": "rId0"
-    }
-  }
-}
+		"version": "1.0.0.41",
+		"author": {"name":"copbi-dops","email":"copbi-dops@example.com"},
+		"resources": [
+			{
+				"resourceId": "rId0",
+				"sourceType": 5,
+				"file": "resources/copbidops62A8909F74E7A2707C2706542F4795A0.pbiviz.json"
+			}
+		],
+		"visual": {"name":"copbidops","displayName":"Call of Power BI: Data Ops","guid":"copbidops62A8909F74E7A2707C2706542F4795A0","visualClassName":"Visual","version":"1.0.0.41","description":"Procedural tactical first-person shooter rendered with three.js.","supportUrl":"https://example.com/copbi-dops","gitHubUrl":""},
+		"metadata": {
+			"pbivizjson": {
+				"resourceId": "rId0"
+			}
+		}
+	}

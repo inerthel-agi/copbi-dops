@@ -314,6 +314,15 @@ export class Sfx {
         this.burst("bandpass", 2600 + this.r() * 900, 1.5, 0.03, 0.002, 0.04);
     }
 
+    /** Zombie moan, quieter with distance: two detuned saw sweeps over a breathy noise band. */
+    groan(dist: number): void {
+        if (!this.ready()) return;
+        const g = 0.2 / (1 + dist / 8), f = 85 + this.r() * 50;
+        this.tone("sawtooth", f, f * 0.7, g, 0.9);
+        this.tone("sawtooth", f * 1.02, f * 0.68, g * 0.6, 0.85);
+        this.burst("bandpass", 500, 1.5, g * 0.5, 0.08, 0.7);
+    }
+
     horn(): void {
         if (!this.ready()) return;
         for (const f of [110, 164.8]) this.tone("sawtooth", f, f * 0.98, 0.09, 1.2);

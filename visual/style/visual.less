@@ -794,6 +794,36 @@
     }
 }
 
+.sl-zones {
+    display: flex;
+    justify-content: center;
+    gap: 6px;
+    margin-top: 4px;
+}
+
+.sl-zone {
+    position: relative;
+    width: 26px;
+    height: 26px;
+    line-height: 26px;
+    text-align: center;
+    font-weight: 700;
+    color: @white;
+    background: rgba(20, 22, 18, 0.7);
+    border: 2px solid rgba(214, 206, 170, 0.5);
+
+    &.mine { border-color: #4aa3ff; color: #9fd0ff; }
+    &.theirs { border-color: #e2483a; color: #ff9a8f; }
+    &.here { outline: 2px solid @white; }
+}
+
+.sl-zone-f {
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    height: 3px;
+}
+
 .sl-diag {
     position: absolute;
     left: 14px;

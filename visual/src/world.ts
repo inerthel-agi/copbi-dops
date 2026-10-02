@@ -478,6 +478,23 @@ export class World {
         return gx >= 0 && gz >= 0 && gx < GRID && gz < GRID && this.nav[gz * GRID + gx] === 0;
     }
 
+    /** Domination zones A (player side, +z), B (middle), C (far side): the open cell nearest to each anchor. */
+    zoneSpots(): Vec[] {
+        const k = this.bound * 0.55;
+        return [[0, k], [0, 0], [0, -k]].map(([ax, az]) => {
+            for (let r = 0; r <= 12; r++) {
+                for (let dz = -r; dz <= r; dz++) {
+                    for (let dx = -r; dx <= r; dx++) {
+                        if (Math.max(Math.abs(dx), Math.abs(dz)) !== r) continue;
+                        const x = Math.floor(ax) + dx + 0.5, z = Math.floor(az) + dz + 0.5;
+                        if (this.walkable(x, z)) return { x, y: 0, z };
+                    }
+                }
+            }
+            return { x: ax, y: 0, z: az };
+        });
+    }
+
     private nearestWalkable(gx: number, gz: number): number {
         for (let r = 0; r < 4; r++) {
             for (let dz = -r; dz <= r; dz++) {

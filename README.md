@@ -2,11 +2,7 @@
 
 ![Call of Power BI: Data Ops](assets/call-of-power-bi-data-ops-banner.png)
 
-Short name: `copbi-dops`. Unofficial parody title, not affiliated with Activision or Microsoft.
-
-First-person shooter implemented as a Power BI custom visual (TypeScript, three.js). It ships in a PBIP project for Power BI Desktop on Windows. All art and sound are generated in code; no external file is loaded.
-
-This project is inspired by Call of Duty: Black Ops 6, Call of Duty: Modern Warfare (2019), and Call of Duty: Modern Warfare II (2022).
+Short name: `copbi-dops`. Unofficial parody title, not affiliated with Activision or Microsoft. First-person shooter implemented as a Power BI custom visual (TypeScript, three.js). It ships in a PBIP project for Power BI Desktop on Windows. All art and sound are generated in code; no external file is loaded. This project is inspired by Call of Duty: Black Ops 6, Call of Duty: Modern Warfare (2019), and Call of Duty: Modern Warfare II (2022).
 
 > [!WARNING]
 > **Do not monetize this project.** The title is a parody that refers to third-party trademarks ("Call of Duty" belongs to Activision, "Power BI" to Microsoft). Selling it, putting it behind a paywall, running ads on it, or publishing it on a store can trigger takedowns and copyright or trademark strikes against you.
@@ -83,7 +79,7 @@ Controls:
 
 Time to kill (TTK): the time from the first hit on a bot to its death. It appears in the kill feed, the HUD (`AVG TTK`) and the end-of-round summary (average and best). In Aim Range the same slot measures reaction time: from a target rising to the hit. The best TTK is persisted (3 kills or more).
 
-Modes: Aim Range (60 s, static and moving targets), Bot Duel (first to 5, bots peek, shoot and take cover), Survival (waves, health regenerates).
+Modes: Aim Range (60 s, static and moving targets). Domination (you and 2 allied bots, marked in blue, no friendly fire, against 3 hostiles: zones A, B and C, 4 s to capture, 1 point per held zone per second, first to 150 or 4 minutes; you respawn on the A side, hostiles on the C side). Zombies (rounds of melee undead that get faster and tougher, sprinters from round 4, no respawn; best round is saved).
 
 Perks: Steady Aim (hip-fire spread -35%), Quick Hands (reload 30% faster), Quickdraw (aim 30% faster), Lightweight (move and sprint 8% faster), Scavenger (+50% reserve ammo). A class weapon that the slicer filters out is replaced by the first matching row.
 

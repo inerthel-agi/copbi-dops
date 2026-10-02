@@ -21,7 +21,7 @@ const DIFFICULTIES: IEnumMember[] = [{ value: "easy", displayName: "Easy" }, { v
 const LOOK_MODES: IEnumMember[] = [{ value: "capture", displayName: "Capture (click, cursor hidden)" }, { value: "drag", displayName: "Drag (hold left button)" }, { value: "joystick", displayName: "Joystick (cursor offset, no button)" }];
 const QUALITIES: IEnumMember[] = [{ value: "high", displayName: "High (shadows)" }, { value: "low", displayName: "Low (no shadows)" }];
 const RECORD_FIELDS: [keyof Records, string][] = [
-    ["rangeKills", "Aim Range targets"], ["duelKills", "Bot Duel kills"], ["survivalWave", "Survival wave"],
+    ["rangeKills", "Aim Range targets"], ["duelKills", "Domination kills"], ["survivalWave", "Zombies round"],
     ["accuracy", "Accuracy %"], ["spray", "Spray score"], ["bestTtk", "Best TTK (ms)"],
 ];
 
